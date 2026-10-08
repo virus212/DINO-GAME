@@ -4,7 +4,7 @@ Il gioco del dinosauro della modalità **Offline mode** dell'app Crackify (iPhon
 Italiano ovunque (UI, commenti, messaggi). Pixel art arancio su cielo al tramonto, stile cabinato.
 
 > **Attenzione:** il gioco NON è un progetto a sé: vive dentro il frontend di Crackify. `static/` contiene i tre file veri
-> dell'app (versione `app.js?v=409`, `style.css?v=394`). Il codice del gioco è un blocco in `app.js`
+> dell'app (versione `app.js?v=414`, `style.css?v=394`, più `boss.js?v=1`). Il codice del gioco è un blocco in `app.js`
 > (cerca `DINO_RECORD_KEY` fino a `(function collegaDino()`), più CSS `.dino-*` / `.offline-*` in `style.css`
 > e il markup `#offlineCabinato`, `#dinoMenu`, `#dinoSchermo`, `#homeDinoSlot` in `index.html`.
 > Non c'è un build: JS vanilla, nessuna dipendenza.

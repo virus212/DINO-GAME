@@ -319,6 +319,7 @@ function dinoBossFine(b) {
   dino.grazia = dino.corsa + BOSS_GRAZIA;
   if (b.esito === "vinto") {
     dino.punti += BOSS_PREMIO;
+    dino.cento = dino.corsa; // il punteggio lampeggia (dinoPunteggio)
     dino.scritte.push({ x: dinoX() + DINO_W / 2, y: dinoTerra() - DINO_H - 10, vita: 0, testo: `+${BOSS_PREMIO}` });
     if (BOSS_REGALO && OGGETTI[BOSS_REGALO]) dinoPrendi({ tipo: BOSS_REGALO });
   } else if (b.esito === "perso") {

@@ -15208,20 +15208,39 @@ const NUVOLA_SPRITE = [
 // Barile radioattivo (Godzilla; dal 08/10 al posto della scaglia verde,
 // Vitto: «non mi piace per niente l'item»): fusto giallo con le fasce
 // scure, il simbolo della radioattività e la melma verde che cola e bolle.
+// Il barile radioattivo di Godzilla (ridisegnato il 08/10, Vitto: «rendere
+// più definita l'immagine dell'item, il barilozzo radioattivo»): 20 x 27
+// celle da 1 unità (item.cella = 1: si disegna via dinoTela), cilindro
+// giallo con luce a sinistra e ombra a destra, due anelli di rinforzo, il
+// trifoglio nero al centro e la melma verde che trabocca dal coperchio.
 const SCAGLIA_SPRITE = [
-  "...g...gg..",
-  "..gGgggGgg.",
-  ".#########.",
-  "#ggyyyyyyY#",
-  "#gdddddddd#",
-  "#gykkykkyY#",
-  "#gykkykkyY#",
-  "#yyyykyyyY#",
-  "#yyykkkyyY#",
-  "#yyykkkyyY#",
-  "#ddddddddd#",
-  "#yyyyyyyyY#",
-  ".#########.",
+"....................",
+  "....###########.....",
+  ".###yYYYYYYYYYY###..",
+  "#ZyyyYGGgggggYYYYZ#.",
+  "ZZyGGGGGggggggggYZZ#",
+  "ZZygggggggggggggYZZ#",
+  "#ZyyyYgggggggYYYYZZ#",
+  "#yGgyyyyZZZZZZZGgZZ#",
+  "#kkkkkkkkkkkkkkkkkk#",
+  "#KKKKKKKKKKKKKKKKKK#",
+  "#YYyyyykkkkkYzzGgZZ#",
+  "#YYyyyykkkkkYzzzZZZ#",
+  "#YYyyyyykkkYYzzzZZZ#",
+  "#YYyyyyyYYYYYzzzZZZ#",
+  "#YYyyyyykkkYYzzzZZZ#",
+  "#YYykkkkkkkkkkkzZZZ#",
+  "#YYykkkkYYYkkkkzZZZ#",
+  "#YYyykkkYYYkkkzzZZZ#",
+  "#YYyykkkYYYkkkzzZZZ#",
+  "#YYyyykyYYYYkzzzZZZ#",
+  "#YYyyyyyYYYYYzzzZZZ#",
+  "#yyyyyyyZZZZZZZZZZZ#",
+  "#kkkkkkkkkkkkkkkkkk#",
+  "#KKKKKKKKKKKKKKKKKK#",
+  "#YYyyyyyYYYYYzzzZZ#.",
+  "#YYyyyyyYYYYYzzzZZ#.",
+  ".####yyyYYYYYz####..",
 ];
 // Stella dorata, con gli occhi come quella di Mario.
 const STELLA_SPRITE = [
@@ -15240,20 +15259,26 @@ const STELLA_SPRITE = [
 // Scudo blu (dal 08/10 al posto delle cuffie, Vitto: «cambiamo l'oggetto
 // con uno scudo blu»): bordo scuro, metà sinistra chiara e destra in ombra,
 // riflesso in alto a sinistra, rombo bianco al centro.
+// Scudo (rifatto il 08/10, Vitto: «rifare icona scudo, migliorare grafica»):
+// scudo araldico 13 x 15, contorno blu notte, bordo d'argento (chiaro a
+// sinistra, in ombra a destra), campo a faccette dal celeste al blu scuro e
+// la croce d'oro al centro, con un lampo di luce in alto a sinistra.
 const CUFFIE_SPRITE = [
-  ".#########.",
-  "#wwlllbbbb#",
-  "#wllllbbbb#",
-  "#llllkbbbb#",
-  "#lllkkkbbb#",
-  "#llkkkkkbb#",
-  "#lllkkkbbb#",
-  ".#lllkbbb#.",
-  ".#lllbbbb#.",
-  "..#llbbb#..",
-  "...#lbb#...",
-  "....#b#....",
-  ".....#.....",
+"..ooooooooo..",
+  ".orrrrrrrrro.",
+  "orwwmmmbbddRo",
+  "orwlmmmbbddRo",
+  "orwlmmybbddRo",
+  "orllmyyYbddRo",
+  "orllyyYYYddRo",
+  "orllmyYYbddRo",
+  ".orlmmYbbdRo.",
+  ".ormmmbbbbRo.",
+  "..ormmbbbRo..",
+  "...ormbbRo...",
+  "....orbRo....",
+  ".....oRo.....",
+  "......o......",
 ];
 // Boombox (il drop del basso; dal 08/10 al posto della cassa, Vitto: «mi
 // sembrano troppo banali l'item e l'effetto»): lo stereo anni '80 col
@@ -15497,9 +15522,9 @@ const STELLA_COLORI = ["#ffd23f", "#ff8a2a", "#ff3b6b", "#b26bff", "#39c6ff", "#
 // nell'estrazione (Godzilla il più raro), colore di alone e barretta
 // (durata 0 = effetto immediato: il drop del basso)
 const OGGETTI = {
-  scaglia: { nome: "Godzilla!", sotto: "Spacca tutto", durata: 8000, peso: 0.15, colore: "#7dff4a", sprite: SCAGLIA_SPRITE, colori: { "#": "#1a1405", y: "#ffd23f", Y: "#c99a1a", d: "#3a2f10", k: "#141414", g: "#7dff4a", G: "#d6ffb0" } },
+  scaglia: { nome: "Godzilla!", sotto: "Spacca tutto", durata: 8000, peso: 0.15, colore: "#7dff4a", cella: 1, sprite: SCAGLIA_SPRITE, colori: { "#": "#1a1405", y: "#fff0a0", Y: "#ffd23f", z: "#e8b020", Z: "#b9830f", q: "#7a5508", k: "#141414", K: "#4a3a10", g: "#58e02a", G: "#c6ff9a" } },
   stella: { nome: "Stella!", sotto: "Invincibile", durata: 8000, peso: 0.2, colore: "#ffd23f", sprite: STELLA_SPRITE, colori: { "#": "#ffd23f", k: "#141414" } },
-  cuffie: { nome: "Scudo!", sotto: "Para un colpo", durata: 15000, peso: 0.25, colore: "#4fb0ff", sprite: CUFFIE_SPRITE, colori: { "#": "#123a7a", w: "#e6f6ff", l: "#4fb0ff", b: "#1f6fd6", k: "#f4f4f5" } },
+  cuffie: { nome: "Scudo!", sotto: "Para un colpo", durata: 15000, peso: 0.25, colore: "#4fb0ff", sprite: CUFFIE_SPRITE, colori: { o: "#0a1d4a", r: "#eaf4ff", R: "#7f9bc8", w: "#ffffff", l: "#8fd0ff", m: "#4fa5f5", b: "#2272dc", d: "#154ba6", y: "#ffe27a", Y: "#e0a21a" } },
   basso: {
     nome: "Boombox!",
     sotto: "Bass drop",
@@ -15547,6 +15572,10 @@ const dino = {
   lampo: null, // { cx, cy, inizio } la bolla dello scudo che va in pezzi
   virus: null, // { inizio, fino, chiusure, prossimo, finestre: [{ id, x, y, testo }] } le finestre di Windows aperte (px del banner)
   prossimoErrore: 0, // ms di corsa da cui può comparire la prossima icona di Windows
+  doppio: false, // il mini ha già fatto il secondo salto in aria
+  taglio: DINO_TAGLIO_SOPRA, // quota oltre la quale la salita rallenta di colpo (alzata dal secondo salto del mini)
+  cento: -1e9, // ms di corsa dell'ultima centinaia superata
+  fuoco: null, // { testo, l, w, h, griglia, sorgenti, ultimo, vampata } il punteggio in fiamme (dinoPunteggio)
   margine: 0, // a schermo intero: unità coperte dall'isola a sinistra (dinoX)
   margineDx: 0, // a schermo intero: unità coperte a destra (safe area), per centrare il minigioco del boss
   zoom: 1, // a schermo intero: quanto è ingrandito il banner (CSS transform)
@@ -15809,6 +15838,10 @@ function dinoNuovaPartita() {
   dino.amb.note = [];
   dino.oggetto = null;
   dino.coda = null;
+  dino.cento = -1e9;
+  dino.doppio = false;
+  dino.taglio = DINO_TAGLIO_SOPRA;
+  dino.fuoco = null;
   const modo = dinoModo();
   dino.prossimoOggetto = modo.oggetti ? dinoTra(modo.oggetti[0]) : 1e12;
   dino.potere = null;
@@ -15837,7 +15870,25 @@ function dinoNuovaPartita() {
 
 /** Spinta del salto in px/ms: come in Chrome cresce un po' con la velocità. */
 function dinoSpinta() {
-  return ((10 + dino.velocita / 10) * DINO_K) / DINO_FOTOGRAMMA;
+  const v = ((10 + dino.velocita / 10) * DINO_K) / DINO_FOTOGRAMMA;
+  return dinoMini() ? v * MINI_SALTO_V : v;
+}
+// Il mini (08/10, Vitto: «sembra più un debuff che un buff»): un salto
+// agile, alto e veloce: picco ~56 (il dino normale 58) ma in ~380 ms invece
+// di 550, e abbastanza in alto da scavalcare i fantasmini alti senza
+// rischiare l'atterraggio. I fantasmini bassi si alzano perché ci passi
+// sotto camminando (dinoPasso, MINI_VARCO). Prendendo la pozione (o
+// finendo l'effetto) a mezz'aria la velocità si riscala con la radice del
+// cambio di gravità, così la quota resta continua: prima, con la gravità
+// dimezzata e la spinta intera, si volava altissimo.
+const MINI_GRAVITA = 1.87;
+const MINI_SALTO_V = 1.55;
+const MINI_RADICE = Math.sqrt(MINI_GRAVITA);
+const MINI_VARCO = 17;
+const MINI_DOPPIO = 18; // di quante unità sale in più il secondo salto
+const MINI_TETTO = 68; // oltre questa quota (unità) il secondo salto rallenta di colpo
+function dinoMini() {
+  return !!(dino.potere && dino.potere.tipo === "pozione");
 }
 
 /** Il tocco: parte, salta, riparte dopo lo schianto, riprende dalla pausa. */
@@ -15868,6 +15919,31 @@ function dinoTocca() {
   } else if (dino.y === 0) {
     dino.vy = dinoSpinta();
     dinoSuono("salto");
+  } else if (dinoMini() && !dino.doppio) {
+    // il mini è agile (08/10, Vitto: «renderlo più agile»): un secondo
+    // salto in aria, per correggere il tempo o scavalcare due ostacoli
+    // di fila. Un colpetto di fumo viola sotto i piedi
+    dino.doppio = true;
+    // spinta per salire di MINI_DOPPIO unità sopra dov'è (mai meno di quella
+    // che ha già se sta ancora salendo)
+    dino.vy = Math.max(dino.vy, Math.sqrt(2 * DINO_G * MINI_GRAVITA * MINI_DOPPIO));
+    // la salita rallenta di colpo (come in Chrome) più in alto di dove
+    // sei: così il secondo salto sale di ~MINI_DOPPIO senza sfondare il cielo
+    dino.taglio = Math.max(DINO_TAGLIO_SOPRA, Math.min(MINI_TETTO, dino.y + MINI_DOPPIO - 8));
+    if (dino.potere) dino.potere.provato = true;
+    dinoSuono("salto");
+    dinoVibra("LIGHT");
+    for (let i = 0; i < 6; i++) {
+      dino.particelle.push({
+        x: dinoX() + 3 + Math.random() * 10,
+        y: dinoTerra() - dino.y + Math.random() * 2,
+        vx: (Math.random() - 0.5) * 0.1,
+        vy: -0.01 + Math.random() * 0.02,
+        vita: 0,
+        durata: 380,
+        colore: Math.random() < 0.5 ? "#d14bff" : "#f5c6ff",
+      });
+    }
   }
   dinoAvvia();
 }
@@ -15959,6 +16035,18 @@ function dinoAmbiente(dt) {
   });
   dino.scritte = dino.scritte.filter((s) => s.vita < 800);
   dino.scossa = Math.max(0, dino.scossa - dt);
+  // il mini lascia scintille viola dai piedi (un buff si deve vedere)
+  if (dino.stato === "corsa" && dinoMini() && Math.random() < dt / 90) {
+    dino.particelle.push({
+      x: dinoX() + 4 + Math.random() * 8,
+      y: dinoTerra() - dino.y - Math.random() * 14,
+      vx: -0.05 - Math.random() * 0.04,
+      vy: 0.02 + Math.random() * 0.04,
+      vita: 0,
+      durata: 450,
+      colore: Math.random() < 0.5 ? "#d14bff" : "#f5c6ff",
+    });
+  }
   // la stella lascia una scia di scintille dorate
   if (dino.stato === "corsa" && dino.potere && dino.potere.tipo === "stella" && Math.random() < dt / 70) {
     dino.particelle.push({
@@ -15992,12 +16080,14 @@ function dinoPasso(dt) {
   const fot = dt / DINO_FOTOGRAMMA; // fotogrammi di Chrome in questo passo
   if (dino.y > 0 || dino.vy > 0) {
     dino.y += dino.vy * dt;
-    dino.vy -= DINO_G * dt;
+    dino.vy -= DINO_G * (dinoMini() ? MINI_GRAVITA : 1) * dt;
     // oltre 63 px (suoi) la salita rallenta di colpo, come in Chrome
-    if (dino.y > DINO_TAGLIO_SOPRA && dino.vy > DINO_TAGLIO_VY) dino.vy = DINO_TAGLIO_VY;
+    if (dino.y > dino.taglio && dino.vy > DINO_TAGLIO_VY) dino.vy = DINO_TAGLIO_VY;
     if (dino.y <= 0) {
       dino.y = 0;
       dino.vy = 0;
+      dino.doppio = false;
+      dino.taglio = DINO_TAGLIO_SOPRA;
     }
   }
   dino.velocita = Math.min(DINO_VEL_MAX, dino.velocita + DINO_ACCELERA * fot);
@@ -16007,7 +16097,10 @@ function dinoPasso(dt) {
   const dx = (dino.velocita - 0.5) * fot * DINO_K;
   const centinaia = Math.floor(dino.punti / 100);
   dino.punti += dino.velocita * fot * 0.025;
-  if (Math.floor(dino.punti / 100) > centinaia) dinoSuono("cento");
+  if (Math.floor(dino.punti / 100) > centinaia) {
+    dinoSuono("cento");
+    dino.cento = dino.corsa; // il punteggio lampeggia (dinoPunteggio)
+  }
   dino.passo += dt;
   dino.corsa += dt;
   dino.terreno.forEach((t) => {
@@ -16017,6 +16110,15 @@ function dinoPasso(dt) {
   dino.ostacoli.forEach((o) => {
     const passo = o.scarto ? (dino.velocita + o.scarto - 0.5) * fot * DINO_K : dx;
     o.x -= passo;
+    // i fantasmini bassi si alzano per far passare il mini, e tornano giù
+    if (o.tipo === "fantasma") {
+      if (o.base === undefined) o.base = o.sopra;
+      if (o.base < DINO_H) {
+        const meta = dinoMini() ? Math.max(o.base, MINI_VARCO) : o.base;
+        o.sopra += (meta - o.sopra) * Math.min(1, 0.12 * fot);
+        if (Math.abs(meta - o.sopra) < 0.05) o.sopra = meta;
+      }
+    }
     // la mina col paracadute scende di pari passo con la strada che fa
     if (o.tipo === "paracadute" && o.sopra > 0) {
       o.sopra = Math.max(0, o.sopra - o.discesa * passo);
@@ -16079,7 +16181,10 @@ function dinoPasso(dt) {
         colore: Math.random() < 0.6 ? OGGETTI[dino.potere.tipo].colore : "#ffffff",
       });
     }
-    if (dino.potere.tipo === "pozione") dinoSbuffo("#d14bff");
+    if (dino.potere.tipo === "pozione") {
+      if (dino.y > 0) dino.vy /= MINI_RADICE;
+      dinoSbuffo("#d14bff");
+    }
     if (dino.potere.tipo === "scaglia") {
       // torna dinosauro a scatti, in uno sbuffo di fumo
       dino.muta = { verso: -1, inizio: dino.corsa };
@@ -16242,8 +16347,9 @@ function dinoNuovoOggetto() {
     caso -= def.peso;
   }
   const sprite = OGGETTI[tipo].sprite;
-  const w = sprite[0].length * DINO_CELLA;
-  const h = sprite.length * DINO_CELLA;
+  const cella = OGGETTI[tipo].cella || DINO_CELLA;
+  const w = sprite[0].length * cella;
+  const h = sprite.length * cella;
   let it;
   if (Math.random() < 0.5) {
     // SOPRA: un mixer piccolo o una mina, da solo, con l'oggetto centrato
@@ -16274,6 +16380,7 @@ function dinoPrendi(it) {
   }
   dino.potere = { tipo: it.tipo, fine: dino.corsa + def.durata, durata: def.durata };
   if (it.tipo === "pozione") {
+    if (dino.y > 0) dino.vy *= MINI_RADICE;
     dinoSbuffo("#d14bff");
     dinoSuono("pozione");
   } else if (it.tipo === "scaglia") {
@@ -16393,7 +16500,10 @@ function dinoLancia(o, punti) {
   dino.lanciati.push({ o, vx: 0.05 + Math.random() * 0.05, vy: 0.16 + Math.random() * 0.08, giro: 0, vg: (Math.random() < 0.5 ? -1 : 1) * (0.008 + Math.random() * 0.008), dx: 0, dy: 0, vita: 0 });
   const centinaia = Math.floor(dino.punti / 100);
   dino.punti += punti;
-  if (Math.floor(dino.punti / 100) > centinaia) dinoSuono("cento");
+  if (Math.floor(dino.punti / 100) > centinaia) {
+    dinoSuono("cento");
+    dino.cento = dino.corsa; // il punteggio lampeggia (dinoPunteggio)
+  }
   dino.scritte.push({ x: o.x + o.w / 2, y: terra - o.sopra - o.h - 8, vita: 0, testo: `+${punti}` });
 }
 
@@ -16443,7 +16553,10 @@ function dinoDistruggi(o, punti = 10) {
   dinoEsplodi(o, colori, o.tipo === "mixer" || o.tipo === "fantasma" ? 12 : 18);
   const centinaia = Math.floor(dino.punti / 100);
   dino.punti += punti;
-  if (Math.floor(dino.punti / 100) > centinaia) dinoSuono("cento");
+  if (Math.floor(dino.punti / 100) > centinaia) {
+    dinoSuono("cento");
+    dino.cento = dino.corsa; // il punteggio lampeggia (dinoPunteggio)
+  }
   dino.scritte.push({ x: o.x + o.w / 2, y: terra - o.sopra - o.h - 8, vita: 0, testo: `+${punti}` });
   dinoSuono("scoppio");
 }
@@ -17002,18 +17115,26 @@ function dinoDisegna() {
   const it = dino.oggetto;
   if (it) {
     const def = OGGETTI[it.tipo];
+    const cl = def.cella || DINO_CELLA;
     const ox = DINO_CELLA * Math.round(it.x / DINO_CELLA);
     const oy = terra - it.sopra - it.h - (Math.sin(dino.corsa / 220) > 0 ? DINO_CELLA : 0);
     const sprite = def.pose ? def.pose[Math.floor(dino.corsa / 250) % def.pose.length] : def.sprite;
     c.globalAlpha = 0.07 + 0.04 * Math.sin(dino.corsa / 160);
     c.fillStyle = def.colore;
-    sprite.forEach((riga, r) => {
-      for (let col = 0; col < riga.length; col++) {
-        if (riga[col] !== ".") c.fillRect(ox + (col - 1) * DINO_CELLA, oy + (r - 1) * DINO_CELLA, 3 * DINO_CELLA, 3 * DINO_CELLA);
+    // l'alone: con celle da 1 unità i quadrati attorno sono da 2 ogni 2 celle
+    const passo = cl === 1 ? 2 : 1;
+    for (let r = 0; r < sprite.length; r += passo) {
+      const riga = sprite[r];
+      for (let col = 0; col < riga.length; col += passo) {
+        if (riga[col] !== ".") c.fillRect(ox + col * cl - DINO_CELLA, oy + r * cl - DINO_CELLA, 3 * DINO_CELLA, 3 * DINO_CELLA);
       }
-    });
+    }
     c.globalAlpha = 1;
-    dinoPixel(c, sprite, ox, oy, def.colori);
+    if (cl === 1) {
+      c.imageSmoothingEnabled = false;
+      c.drawImage(dinoTela(`ogg|${it.tipo}`, sprite, def.colori), ox, oy, it.w, it.h);
+      c.imageSmoothingEnabled = true;
+    } else dinoPixel(c, sprite, ox, oy, def.colori);
   }
   // la strada bruciata dal soffio: brace che passa dal bianco all'arancio al
   // rosso e si spegne, con qualche fiammella sopra
@@ -17174,7 +17295,7 @@ function dinoDisegna() {
   const lPunti = punti ? dinoMisuraScritta(punti, DINO_FONT_PICCOLO) : 0;
   const xp = W / 2 - (lHi + stacco + lPunti) / 2;
   if (hi) dinoScrittaDa(c, hi, xp, DINO_Y_PUNTEGGIO, "rgba(255, 255, 255, 0.4)", DINO_FONT_PICCOLO);
-  if (punti) dinoScrittaDa(c, punti, xp + lHi + stacco, DINO_Y_PUNTEGGIO, "#ff9a3c", DINO_FONT_PICCOLO);
+  if (punti) dinoPunteggio(c, punti, xp + lHi + stacco, lPunti);
   // potere in corso: il tempo che resta, sopra la testa (dinoTimerPotere)
   dinoTimerPotere(c, terra);
   // i +10 degli ostacoli spaccati
@@ -17187,6 +17308,10 @@ function dinoDisegna() {
   // il nome del potere: il cartellone al posto della scritta OFFLINE MODE
   if (dino.annuncio && dino.corsa < dino.annuncio.fino && dino.stato !== "fine") {
     dinoCartellone(c, W);
+  }
+  if (dino.potere && dino.potere.tipo === "pozione" && !dino.potere.provato && dino.stato === "corsa" && Math.floor(dino.corsa / 450) % 3 !== 2) {
+    // il mini: finché non ci provi, come si fa il secondo salto
+    dinoScritta(c, "Tocca ancora in aria", W / 2, terra - 70, "#f5c6ff", DINO_FONT_PICCOLO);
   }
   if (dino.potere && dino.potere.tipo === "scaglia" && !dino.potere.provato && dino.stato === "corsa") {
     // Godzilla: finché non ci provi, come si spara
@@ -17217,7 +17342,7 @@ function dinoDisegna() {
         dinoScritta(c, `Nuovo record ${pad(dino.punti)}`, W / 2, terra - 50, "#ffd23f", DINO_FONT_PICCOLO);
       }
     } else {
-      dinoScritta(c, `Punti ${pad(dino.punti)}   HI ${pad(dino.record)}`, W / 2, terra - 50, "#ff9a3c", DINO_FONT_PICCOLO);
+      dinoScritta(c, `Punti ${pad(dino.punti)}   HI ${pad(dino.record)}`, W / 2, terra - 50, dinoFascia().colore, DINO_FONT_PICCOLO);
     }
     const lato = 15 * DINO_CELLA;
     const bx = DINO_CELLA * Math.round((W / 2 - lato / 2) / DINO_CELLA);
@@ -17242,6 +17367,137 @@ function dinoScrittePausa(c, W, terra) {
   dinoScritta(c, "Pausa", W / 2, terra - 66, "#f4f4f5");
   const acceso = dinoMotoRidotto() || dino.amb.tempo % 1100 < 750;
   if (acceso) dinoScritta(c, "Tocca per continuare", W / 2, terra - 44, "rgba(255, 255, 255, 0.55)", DINO_FONT_PICCOLO);
+}
+
+// Il punteggio in fiamme (08/10, Vitto: «l'intero punteggio che si infiamma
+// tutto, come nei giochi quando inizi a prendere i moltiplicatori»; tre
+// gradazioni: 1000-2000, 2000-3000, da 3000). Sotto i 1000 le cifre arancio
+// di sempre. Da 1000 il numero brucia davvero: un fuoco a celle (quello
+// classico di Doom) che ha per sorgente le celle accese delle cifre stesse,
+// così le fiamme salgono da tutto il numero, dentro e fra le cifre; sopra,
+// le cifre roventi col contorno scuro. Più punti, fiamme più alte; da 3000
+// fuoco blu, il più caldo, e il numero trema. Passando di livello una
+// vampata. A ogni centinaio il lampo bianco col saltino resta.
+const FUOCO_ROSSO = ["", "#3a0a02", "#5c1204", "#7f1d06", "#a12a07", "#c23a08", "#df4e0a", "#f0660f", "#f78418", "#fca024", "#ffbb33", "#ffd04d", "#ffe27a", "#fff0a8", "#fff8d6", "#ffffff"];
+const FUOCO_BLU = ["", "#0a1640", "#0f2266", "#14308c", "#1a42b0", "#2257d1", "#2c6fe8", "#3a8af5", "#4fa5ff", "#68bdff", "#86d2ff", "#a6e3ff", "#c5f0ff", "#def8ff", "#f0fcff", "#ffffff"];
+const PUNTEGGIO_FUOCHI = [
+  { da: 1000, calo: 6, tavola: FUOCO_ROSSO, righe: 6, cifre: ["#ffffff", "#fff3b8", "#ffd23f", "#ffb02e", "#ff8a2a"], colore: "#ffb02e" },
+  { da: 2000, calo: 4, tavola: FUOCO_ROSSO, righe: 9, cifre: ["#ffffff", "#fff8d6", "#ffe27a", "#ffbb33", "#ff7a1a"], colore: "#ff5a1a", alone: "255, 90, 20" },
+  { da: 3000, calo: 3, tavola: FUOCO_BLU, righe: 11, cifre: ["#ffffff", "#f0fcff", "#c5f0ff", "#86d2ff", "#4fa5ff"], colore: "#7fd8ff", alone: "60, 150, 255", trema: true },
+];
+function dinoLivelloFuoco() {
+  let l = -1;
+  PUNTEGGIO_FUOCHI.forEach((f, i) => {
+    if (dino.punti >= f.da) l = i;
+  });
+  return l;
+}
+/** Il colore del punteggio fuori dal tabellone (game over). */
+function dinoFascia() {
+  const l = dinoLivelloFuoco();
+  return { colore: l < 0 ? "#ff9a3c" : PUNTEGGIO_FUOCHI[l].colore };
+}
+/** Celle accese delle cifre (DINO_FONT_PICCOLO), in celle da sinistra. */
+function dinoCelleCifre(testo) {
+  const celle = [];
+  let x0 = 0;
+  [...testo].forEach((ch) => {
+    const g = DINO_FONT_PICCOLO[ch] || DINO_FONT_PICCOLO[" "];
+    g.forEach((riga, r) => {
+      for (let k = 0; k < riga.length; k++) if (riga[k] === "#") celle.push([x0 + k, r]);
+    });
+    x0 += g[0].length + 1;
+  });
+  return { celle, larghe: x0 - 1 };
+}
+/** Un passo del fuoco: ogni cella passa il suo calore a quella sopra (un
+ * po' di lato, a caso), perdendone un po'; le cifre sono sorgenti piene. */
+function dinoFuocoPasso(f, liv, vampata) {
+  const { w, h, griglia, sorgenti } = f;
+  sorgenti.forEach((i) => (griglia[i] = 15));
+  const calo = vampata ? Math.max(1, liv.calo - 3) : liv.calo;
+  for (let y = 1; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const v = griglia[y * w + x];
+      const dx = Math.floor(Math.random() * 3) - 1;
+      const xx = Math.min(w - 1, Math.max(0, x + dx));
+      const giu = Math.round(Math.random() * calo);
+      const sopra = (y - 1) * w + xx;
+      // il calore sale nella cella sopra (un po' di lato), perdendone un po'
+      griglia[sopra] = Math.max(0, v - giu);
+    }
+  }
+  sorgenti.forEach((i) => (griglia[i] = 15));
+}
+function dinoPunteggio(c, testo, x, larghezza) {
+  const t = dino.corsa;
+  const cl = DINO_CELLA;
+  const l = dinoLivelloFuoco();
+  let y = DINO_Y_PUNTEGGIO;
+  const k = t - dino.cento;
+  const lampo = k >= 0 && k < 420 && Math.floor(k / 70) % 2 === 0;
+  if (k >= 0 && k < 140) y -= cl;
+  if (l < 0) {
+    dino.fuoco = null;
+    dinoScrittaDa(c, testo, x, y, lampo ? "#ffffff" : "#ff9a3c", DINO_FONT_PICCOLO);
+    return;
+  }
+  const liv = PUNTEGGIO_FUOCHI[l];
+  // la griglia del fuoco: il numero più due celle per lato, e sopra le righe
+  // delle fiamme. Si rifà quando cambiano cifre o livello
+  const { celle, larghe } = dinoCelleCifre(testo);
+  const w = larghe + 4;
+  const h = liv.righe + 5;
+  let f = dino.fuoco;
+  if (!f || f.testo !== testo || f.l !== l) {
+    const vecchia = f && f.w === w && f.h === h ? f.griglia : null;
+    const sorgenti = new Set(celle.map(([cx, cy]) => (liv.righe + cy) * w + cx + 2));
+    f = { testo, l, w, h, griglia: vecchia || new Uint8Array(w * h), sorgenti, ultimo: f ? f.ultimo : t, vampata: f && f.l < l ? t : f ? f.vampata : t };
+    dino.fuoco = f;
+  }
+  const passi = Math.min(4, Math.floor((t - f.ultimo) / 45));
+  for (let i = 0; i < passi; i++) dinoFuocoPasso(f, liv, t - f.vampata < 500);
+  if (passi > 0) f.ultimo += passi * 45;
+  if (t < f.ultimo) f.ultimo = t; // partita nuova
+  // da 3000 il numero trema
+  const tr = liv.trema ? [-1, 0, 1, 0][Math.floor(t / 55) % 4] : 0;
+  const gx = cl * Math.round(x / cl) - 2 * cl + tr;
+  const gy = y - liv.righe * cl;
+  // alone dietro
+  if (liv.alone) {
+    const cx = gx + (w * cl) / 2;
+    const cy = y + 2 * cl;
+    const g = c.createRadialGradient(cx, cy, 2, cx, cy, w * cl * 0.7);
+    g.addColorStop(0, `rgba(${liv.alone}, ${0.3 + 0.08 * Math.sin(t / 90)})`);
+    g.addColorStop(1, `rgba(${liv.alone}, 0)`);
+    c.save();
+    c.globalCompositeOperation = "lighter";
+    c.fillStyle = g;
+    c.fillRect(gx - w * cl, gy - 10, w * cl * 3, h * cl + 30);
+    c.restore();
+  }
+  // le fiamme
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const v = f.griglia[j * w + i];
+      if (v < 2) continue;
+      c.globalAlpha = v < 4 ? 0.45 : v < 6 ? 0.75 : 1;
+      c.fillStyle = liv.tavola[v];
+      c.fillRect(gx + i * cl, gy + j * cl, cl, cl);
+    }
+  }
+  c.globalAlpha = 1;
+  // le cifre roventi: contorno scuro e righe dal bianco (in alto) al colore
+  const x0 = gx + 2 * cl;
+  c.fillStyle = l === 2 ? "#06102e" : "#2a0802";
+  celle.forEach(([cx, cy]) => {
+    c.fillRect(x0 + cx * cl - 1, y + cy * cl, cl + 2, cl);
+    c.fillRect(x0 + cx * cl, y + cy * cl - 1, cl, cl + 2);
+  });
+  celle.forEach(([cx, cy]) => {
+    c.fillStyle = lampo ? "#ffffff" : liv.cifre[cy];
+    c.fillRect(x0 + cx * cl, y + cy * cl, cl, cl);
+  });
 }
 
 /** Un mixer: la base grigia con le manopole arancio, larga quanto il gruppo,
@@ -18150,7 +18406,8 @@ const DINO_ICONE = {
 };
 Object.entries(OGGETTI).forEach(([k, def]) => {
   const righe = def.pose ? def.pose[0] : def.sprite;
-  DINO_ICONE[k] = [righe[0].length * DINO_CELLA, righe.length * DINO_CELLA, (c) => dinoPixel(c, righe, 0, 0, def.colori)];
+  const cl = def.cella || DINO_CELLA;
+  DINO_ICONE[k] = [righe[0].length * cl, righe.length * cl, (c) => dinoPixel(c, righe, 0, 0, def.colori, cl)];
 });
 
 // le tre modalità: una scenetta ciascuna (posa = passo della corsa)
