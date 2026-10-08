@@ -1,5 +1,5 @@
 // Fase 1 del boss: il giro intero col segnaposto, pausa e background a metà,
-// vittoria (premio, regalo, grazia, strada libera) e sconfitta («riprendi»).
+// vittoria (premio, regalo, grazia, strada libera) e sconfitta (game over).
 import { apri, foto } from "./banco.mjs";
 
 const OUT = process.argv[2] || ".";
@@ -131,18 +131,19 @@ s = await stato();
 verifica(s.ostacoli === 0, `strada libera dopo il ritorno (${s.ostacoli} ostacoli)`);
 await pulisci();
 
-// —— sconfitta con «riprendi»
+// —— sconfitta: game over (BOSS_SCONFITTA = "muori"), record salvato
 await page.waitForTimeout(500);
 await page.evaluate(() => window.__dinoBoss("scimmione"));
 await aspettaFase("gioco", 20000);
 await page.waitForTimeout(300); // BOSS_SORDO
 await toccaCampo(30, 50);
-await page.waitForFunction(() => !window.__dino.boss, null, { timeout: 6000 });
+await page.waitForFunction(() => window.__dino.stato === "fine", null, { timeout: 6000 });
 s = await stato();
-verifica(s.stato === "corsa" && s.bossVisti === 2, `sconfitta: si riprende (${s.stato}, visti ${s.bossVisti})`);
+const causa = await page.evaluate(() => __dino.causa);
+verifica(s.stato === "fine" && causa === "Battuto dal boss" && !s.fase, `sconfitta: game over «${causa}»`);
 
 // —— niente salti col boss arrivato: un tocco nell'incontro non fa saltare
-await page.waitForTimeout(500);
+await page.waitForTimeout(600);
 await page.evaluate(() => window.__dinoBoss("labirinto"));
 await aspettaFase("incontro", 20000);
 await page.locator("#dinoCampo").tap();

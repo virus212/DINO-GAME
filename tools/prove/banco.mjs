@@ -79,7 +79,7 @@ export async function apri({ largo = 393, alto = 852, schermo = false, ridotto =
     if (u.pathname.startsWith("/api/")) return route.fulfill({ status: 503, body: "" });
     const nome = u.pathname === "/" ? "index.html" : u.pathname.slice(1);
     const file = path.join(STATIC, nome);
-    if (!["index.html", "app.js", "style.css"].includes(nome) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: "" });
+    if (!["index.html", "app.js", "style.css", "boss.js"].includes(nome) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: "" });
     route.fulfill({ status: 200, contentType: TIPI[path.extname(nome)], body: fs.readFileSync(file) });
   });
   await page.goto(ORIGINE + "/");

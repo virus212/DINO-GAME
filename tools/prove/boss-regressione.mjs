@@ -28,22 +28,22 @@ await page.evaluate(() => {
 });
 await page.waitForFunction(() => __dino.boss, null, { timeout: 5000 });
 const b = await page.evaluate(() => ({ tipo: __dino.boss.tipo, punti: Math.floor(__dino.punti) }));
-verifica(b.tipo === "scimmione" && b.punti >= 1000, `a 1000 punti parte il primo boss: ${JSON.stringify(b)}`);
+verifica(b.tipo === "invasori" && b.punti >= 1000, `a 1000 punti parte il primo boss: ${JSON.stringify(b)}`);
 await page.waitForFunction(() => __dino.boss && __dino.boss.fase === "gioco", null, { timeout: 20000 });
-await page.evaluate(() => BOSS_GIOCHI.scimmione.tasto(__dino.boss.gioco, { tasto: "destra", giu: true }));
+await page.evaluate(() => BOSS_GIOCHI.invasori.tasto(__dino.boss.gioco, { tasto: "destra", giu: true }));
 await page.waitForFunction(() => !__dino.boss, null, { timeout: 6000 });
 const dopo = await page.evaluate(() => ({ prossimo: __dino.prossimoBoss, punti: Math.floor(__dino.punti), visti: __dino.bossVisti }));
-verifica(dopo.prossimo === 2000 && dopo.visti === 1, `la soglia dopo: ${JSON.stringify(dopo)}`);
+verifica(dopo.prossimo === 2300 && dopo.visti === 1, `la soglia dopo: ${JSON.stringify(dopo)}`);
 
-// —— 3. il premio non deve scavalcare la soglia dopo senza boss: punti a 1990 → boss, vinto (+300 = 2290) → prossima 3000
+// —— 3. la soglia dopo si sposta del premio: 1000 + 300 + 1000 = 2300
 await page.evaluate(() => {
   __dino.grazia = 0;
   __dino.potere = null;
-  __dino.punti = 1995;
+  __dino.punti = 2295;
 });
 await page.waitForFunction(() => __dino.boss, null, { timeout: 5000 });
 const tipo2 = await page.evaluate(() => __dino.boss.tipo);
-verifica(tipo2 === "labirinto", `secondo boss: ${tipo2}`);
+verifica(tipo2 === "scimmione", `secondo boss: ${tipo2}`);
 await page.waitForFunction(() => __dino.boss && __dino.boss.fase === "gioco", null, { timeout: 25000 });
 // —— 4. cambio modalità a metà boss: tutto azzerato, niente boss in Default dino
 await page.evaluate(() => dinoImpostaModo("classico"));

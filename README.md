@@ -41,12 +41,12 @@ Nel browser si può forzare: `window.isNativeShell = () => true; enterOfflineMod
 ## Boss (in lavorazione: fase 1, architettura)
 Ogni tanto il dino incontra un boss e il banner diventa per 30-60 s un minigioco tributo a un cabinato classico:
 lo scimmione coi barili, il labirinto coi fantasmi, gli invasori. Il protagonista è sempre il dino; l'ambiente è il nostro.
-Tutto è documentato nel commento **BOSS** in cima al blocco del gioco (subito dopo `DINO_RECORD_KEY`), con le costanti `BOSS_*`.
-Il motore sta prima di `dinoDisegna` (cerca `—— BOSS: il motore`).
+Tutto vive in **`static/boss.js`** (commento BOSS in cima, costanti `BOSS_*`, motore, minigiochi), caricato da `index.html` **prima** di `app.js`
+nello stesso scope globale: al caricamento solo letterali e funzioni. In `app.js` restano solo gli agganci (cerca `dinoBoss` e `dino.boss`).
 
-- **Quando:** `DINO_MODI[modo].boss = { primo, ogni }`: Normale 1000/1000, Crazy 700/700, Default dino mai.
+- **Quando:** `DINO_MODI[modo].boss = { primo, ogni }`: Normale 1000/1000, Crazy 800/800, Default dino mai (decisioni di Vitto, 08/10).
   Soglia controllata «a livello» (`dino.punti >= dino.prossimoBoss`), quindi anche i +10 e le combo la scavalcano. La soglia dopo
-  si conta da quella raggiunta. Ordine `BOSS_ORDINE`, poi il giro ricomincia un livello più su.
+  si conta da quella raggiunta e si sposta del premio. Ordine `BOSS_ORDINE`, poi il giro ricomincia un livello più su.
   `BOSS_ACCESO = false` finché i minigiochi non sono pronti: oggi il boss parte solo dalla console.
 - **Stato:** `dino.stato` resta `"corsa"` (pausa, background, menu e schermo intero funzionano da soli). Il boss è `dino.boss`:
   `{ fase, tipo, livello, t, corsa0, velocita, esito, gioco, dita, tasti, prima }`. `t` va avanti solo col dt dei passi.
@@ -71,7 +71,7 @@ Il motore sta prima di `dinoDisegna` (cerca `—— BOSS: il motore`).
     (che ricarica l'app) per `DINO_PAUSA_TUTELA`, 5 minuti.
 - **Ritorno:** velocità di prima, `prossimoOggetto`/`prossimoErrore` spostati avanti, `dino.coda` segnaposto di `BOSS_RIPRESA` ms
   (stesso meccanismo di sempre: il simulatore resta valido), grazia `BOSS_GRAZIA`. Conseguenze in costanti, da decidere:
-  vittoria `BOSS_PREMIO` + `BOSS_REGALO`; sconfitta `BOSS_SCONFITTA = "riprendi"` (meno `BOSS_PENALITA`) oppure `"muori"`.
+  vittoria `BOSS_PREMIO` (300) + `BOSS_REGALO` (Stella); sconfitta `BOSS_SCONFITTA = "muori"` (game over, scelto da Vitto) oppure `"riprendi"`.
 - **Minigiochi** (`BOSS_GIOCHI[tipo]`, oggi tutti e tre il segnaposto: tocco a destra vince, a sinistra perde):
   `{ titolo, sotto, colore, aiuto, nuovo(livello), misura(g), passo(g, dt), disegna(c, g, x0, y0), dito(g, ev), tasto(g, ev), esito(c, g, x0, y0, k, esito) }`.
   - Coordinate in unità del campo, che `dinoBossCampo` centra a ogni fotogramma (a schermo intero fra isola e bordo destro).

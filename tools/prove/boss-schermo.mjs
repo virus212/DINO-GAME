@@ -58,7 +58,7 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
   await page.waitForFunction(() => window.__dino.boss && window.__dino.boss.esito, null, { timeout: 2000 });
   verifica((await page.evaluate(() => __dino.boss.esito)) === "perso", "dopo il cambio di misura il tocco a sinistra perde");
   await finito(page);
-  verifica((await page.evaluate(() => __dino.stato)) === "corsa", "e si torna a correre");
+  verifica((await page.evaluate(() => __dino.stato)) === "fine", "e la sconfitta è game over");
   tuttiErrori.push(...errori);
   await browser.close();
 }

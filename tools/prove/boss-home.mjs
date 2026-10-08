@@ -16,7 +16,7 @@ await page.route("**/*", (route) => {
   if (u.pathname.startsWith("/api/")) return route.fulfill({ status: 503, body: "" });
   const nome = u.pathname === "/" ? "index.html" : u.pathname.slice(1);
   const f = path.join(STATIC, nome);
-  if (!["index.html", "app.js", "style.css"].includes(nome)) return route.fulfill({ status: 404, body: "" });
+  if (!["index.html", "app.js", "style.css", "boss.js"].includes(nome)) return route.fulfill({ status: 404, body: "" });
   route.fulfill({ status: 200, contentType: { html: "text/html", js: "text/javascript", css: "text/css" }[nome.split(".").pop()], body: fs.readFileSync(f) });
 });
 await page.goto("http://crackify.test/");
