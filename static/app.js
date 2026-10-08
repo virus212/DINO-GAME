@@ -14942,14 +14942,19 @@ const DINO_RECORD_KEY = "crackify_dino_record2";
 //   dinoDom      la classe .boss sul cabinato nasconde OFFLINE MODE mentre
 //                il minigioco ha bisogno di tutta l'altezza.
 //   background   il visibilitychange «hidden» mette in pausa (prima non lo
-//                faceva nessuno: il rAF in sospeso ripartiva da solo).
+//                faceva nessuno: il rAF in sospeso ripartiva da solo), e quella
+//                pausa resta protetta dal rientro online (dinoInGioco,
+//                DINO_PAUSA_TUTELA). Il blur della finestra a metà minigioco
+//                pure.
 //
 // · Ritorno alla corsa. dino.corsa è andato avanti in attesa, sgombro e
 //   arrivo: prossimoOggetto e prossimoErrore si spostano avanti dello stesso
 //   tanto (al ritorno non esce subito un bonus). dino.coda diventa un
 //   segnaposto largo BOSS_RIPRESA ms di strada: il meccanismo è quello di
 //   sempre, quindi il simulatore (tools/percorso) resta valido. La velocità
-//   torna quella di prima del boss.
+//   torna quella di prima del boss. Si esce dal boss SOLO da dinoBossFine o
+//   con una partita nuova (dinoNuovaPartita, dinoPrepara, dinoSchianto):
+//   l'arrivo lascia la velocità a 0,5 e solo dinoBossFine la ridà.
 //
 // · Minigiochi (BOSS_GIOCHI[tipo], fasi 3-4), tutti con la stessa forma:
 //   { titolo, sotto, colore, aiuto, nuovo(livello), misura(g) → { w, h },
@@ -14963,8 +14968,11 @@ const DINO_RECORD_KEY = "crackify_dino_record2";
 //   unità del campo. Un solo dito basta: zone, tocco, tieni premuto, trascina.
 //   Vincoli: la scala è quella del gioco e l'altezza è il limite (162 unità
 //   nel banner e in Home, 168 a schermo intero), quindi campo al massimo
-//   ~296 × 150, misure pari (celle su pixel interi); a schermo intero
-//   l'angolo in alto a destra è della ×. Fisica e passi propri, a tick fisso
+//   ~272 × 150 (iPhone da 375 pt: banner largo 295; a schermo intero la ×
+//   copre l'angolo in alto a destra), misure pari (celle su pixel interi).
+//   Un errore nel minigioco non blocca il gioco: il boss finisce «pari»
+//   (dinoBossProva). disegna ed esito non cambiano mai lo stato: girano
+//   anche in pausa e al resize. Fisica e passi propri, a tick fisso
 //   di 1000/60 con accumulatore (mai DINO_G né dinoSpinta: il salto del dino
 //   è alto 58 unità). Quello che cambia (puntini mangiati) su una tela
 //   propria dentro g: la cache di dinoTela si svuota tutta oltre 160 chiavi.
@@ -15677,6 +15685,7 @@ const dino = {
   boss: null, // { fase, tipo, livello, t, corsa0, velocita, esito, gioco } il boss in corso (vedi BOSS in cima)
   prossimoBoss: 1e12, // punti da cui parte il prossimo boss (1e12 = mai)
   bossVisti: 0, // boss incontrati in questa partita: decide quale tocca e il livello
+  pausaSfondo: 0, // Date.now() di quando il background ha messo in pausa (dinoInGioco)
   causa: "", // cosa ti ha preso, per la schermata di fine
   terreno: [], // sassolini del terreno che scorrono
   passo: 0,
@@ -15757,9 +15766,13 @@ function dinoCieloNuovo() {
 }
 
 /** Partita in corso o schermo intero aperto: il rientro online (che
- * ricarica l'app) aspetta, come aspetta un brano che suona. */
+ * ricarica l'app) aspetta, come aspetta un brano che suona. Anche la partita
+ * messa in pausa dal background (magari a metà boss), per DINO_PAUSA_TUTELA:
+ * chi torna la ritrova e la riprende; dopo tanto tempo vince il rientro. */
+const DINO_PAUSA_TUTELA = 5 * 60 * 1000; // ms veri
 function dinoInGioco() {
-  return dino.stato === "corsa" || dinoSchermoAperto();
+  const sfondo = dino.stato === "pausa" && dino.pausaSfondo && Date.now() - dino.pausaSfondo < DINO_PAUSA_TUTELA;
+  return dino.stato === "corsa" || sfondo || dinoSchermoAperto();
 }
 
 // —— SCHERMO INTERO (c'era il 07/10, tolto, rimesso il 08/10: Vitto
@@ -15948,6 +15961,7 @@ function dinoNuovaPartita() {
   dino.boss = null;
   dino.prossimoBoss = modo.boss && BOSS_ACCESO ? modo.boss.primo : 1e12;
   dino.bossVisti = 0;
+  dino.pausaSfondo = 0;
   dino.causa = "";
 }
 
@@ -15969,6 +15983,7 @@ function dinoTocca() {
     dinoSuono("salto");
   } else if (dino.stato === "pausa") {
     dino.stato = "corsa";
+    dino.pausaSfondo = 0;
     dinoBossMolla(); // dita e tasti lasciati durante la pausa
   } else if (dinoBossTocca()) {
     // il boss è arrivato: il tocco è del minigioco (o di nessuno), niente salti
@@ -16299,6 +16314,7 @@ function dinoSchianto(o) {
     dinoSuono("scoppio");
   }
   dino.stato = "fine";
+  dino.boss = null; // morto mentre il boss aspettava (attesa, sgombro)
   dino.fineAlle = performance.now();
   const p = Math.floor(dino.punti);
   // festa solo se batti un record che c'era: la prima partita no
@@ -17047,6 +17063,21 @@ function dinoBossFase(b, fase) {
   b.t = 0;
 }
 
+/** Chiama il minigioco senza rischi: un errore lì dentro fermerebbe il ciclo
+ * (il rAF non si riarma) e il gioco resterebbe bloccato fino al reload.
+ * Segna il guasto (anche dal disegno: è l'unica cosa che cambia) e il boss
+ * finisce «pari» al passo dopo. */
+function dinoBossProva(b, fn) {
+  if (b.guasto) return null;
+  try {
+    return fn();
+  } catch (err) {
+    b.guasto = true;
+    console.error("Boss", b.tipo, err);
+    return null;
+  }
+}
+
 /** Quanto dura la tendina: con «riduci movimento» è solo un taglio a nero. */
 function dinoBossTendina() {
   return dinoMotoRidotto() ? 240 : BOSS_TENDINA;
@@ -17078,12 +17109,12 @@ function dinoBossPasso(dt) {
   } else if (b.fase === "incontro") {
     if (b.t >= BOSS_INCONTRO) {
       dinoBossFase(b, "entra");
-      b.gioco = gioco.nuovo(b.livello);
+      b.gioco = dinoBossProva(b, () => gioco.nuovo(b.livello)) || {};
     }
   } else if (b.fase === "entra") {
     if (b.t >= dinoBossTendina()) dinoBossFase(b, "gioco");
   } else if (b.fase === "gioco") {
-    const esito = gioco.passo(b.gioco, dt) || (b.t >= BOSS_TEMPO ? "pari" : null);
+    const esito = dinoBossProva(b, () => gioco.passo(b.gioco, dt)) || (b.guasto || b.t >= BOSS_TEMPO ? "pari" : null);
     if (esito) {
       b.esito = esito;
       dinoBossFase(b, "esito");
@@ -17147,7 +17178,7 @@ function dinoBossCopre() {
  * fra l'isola e il bordo destro), a unità pari (celle su pixel interi),
  * ricalcolato a ogni fotogramma (rotazione, schermo intero, Home). */
 function dinoBossCampo(b) {
-  const { w, h } = BOSS_GIOCHI[b.tipo].misura(b.gioco);
+  const { w, h } = dinoBossProva(b, () => BOSS_GIOCHI[b.tipo].misura(b.gioco)) || { w: 0, h: 0 };
   const cx = (dino.margine + dino.w - dino.margineDx) / 2;
   return { x: DINO_CELLA * Math.round((cx - w / 2) / DINO_CELLA), y: DINO_CELLA * Math.round((dino.h - h) / 2 / DINO_CELLA), w, h };
 }
@@ -17187,7 +17218,7 @@ function dinoBossPuntatore(tipo, e) {
   const campo = dinoBossCampo(b);
   const x = ((e.clientX - r.left) / r.width) * dino.w - campo.x;
   const y = ((e.clientY - r.top) / r.height) * dino.h - campo.y;
-  gioco.dito(b.gioco, { tipo, x, y, id: e.pointerId });
+  dinoBossProva(b, () => gioco.dito(b.gioco, { tipo, x, y, id: e.pointerId }));
   return true;
 }
 
@@ -17202,7 +17233,7 @@ function dinoBossTasto(e, giu) {
   if (!giu) {
     if (!b.tasti.has(tasto)) return false;
     b.tasti.delete(tasto);
-    if (gioco.tasto) gioco.tasto(b.gioco, { tasto, giu: false });
+    if (gioco.tasto) dinoBossProva(b, () => gioco.tasto(b.gioco, { tasto, giu: false }));
     return true;
   }
   if (b.fase !== "gioco") return false;
@@ -17214,7 +17245,7 @@ function dinoBossTasto(e, giu) {
   e.preventDefault();
   if (e.repeat || !dinoBossAscolta(b) || b.tasti.has(tasto)) return true;
   b.tasti.add(tasto);
-  if (gioco.tasto) gioco.tasto(b.gioco, { tasto, giu: true });
+  if (gioco.tasto) dinoBossProva(b, () => gioco.tasto(b.gioco, { tasto, giu: true }));
   return true;
 }
 
@@ -17224,8 +17255,8 @@ function dinoBossMolla() {
   const b = dino.boss;
   if (!b || !b.gioco) return;
   const gioco = BOSS_GIOCHI[b.tipo];
-  b.dita.forEach((id) => gioco.dito && gioco.dito(b.gioco, { tipo: "su", x: NaN, y: NaN, id }));
-  b.tasti.forEach((tasto) => gioco.tasto && gioco.tasto(b.gioco, { tasto, giu: false }));
+  b.dita.forEach((id) => gioco.dito && dinoBossProva(b, () => gioco.dito(b.gioco, { tipo: "su", x: NaN, y: NaN, id })));
+  b.tasti.forEach((tasto) => gioco.tasto && dinoBossProva(b, () => gioco.tasto(b.gioco, { tasto, giu: false })));
   b.dita.clear();
   b.tasti.clear();
 }
@@ -17249,7 +17280,7 @@ function dinoBossTocca() {
   const gioco = BOSS_GIOCHI[b.tipo];
   if (dinoBossAscolta(b) && !b.tasti.has("azione")) {
     b.tasti.add("azione"); // il keyup arriva al campo, che ora ha il fuoco
-    if (gioco.tasto) gioco.tasto(b.gioco, { tasto: "azione", giu: true });
+    if (gioco.tasto) dinoBossProva(b, () => gioco.tasto(b.gioco, { tasto: "azione", giu: true }));
   }
   return true;
 }
@@ -17263,8 +17294,13 @@ function dinoBossScena(c, W, H) {
   c.fillRect(0, 0, W, H);
   if (b.gioco) {
     const r = dinoBossCampo(b);
-    if (b.fase === "esito") gioco.esito(c, b.gioco, r.x, r.y, Math.min(1, b.t / BOSS_ESITO), b.esito);
-    else gioco.disegna(c, b.gioco, r.x, r.y);
+    // il minigioco non deve lasciare trasparenze, composizioni o smoothing
+    // al resto del disegno (e la corsa ne lascia: lo smoothing lo rimette)
+    c.save();
+    c.imageSmoothingEnabled = false;
+    if (b.fase === "esito") dinoBossProva(b, () => gioco.esito(c, b.gioco, r.x, r.y, Math.min(1, b.t / BOSS_ESITO), b.esito));
+    else dinoBossProva(b, () => gioco.disegna(c, b.gioco, r.x, r.y));
+    c.restore();
     if (b.fase === "gioco" && b.prima && b.t < 3000 && (dinoMotoRidotto() || Math.floor(b.t / 450) % 3 !== 2)) {
       dinoScritta(c, gioco.aiuto, W / 2, r.y + r.h - 12, "#bdf6ff", DINO_FONT_PICCOLO);
     }
@@ -17301,6 +17337,7 @@ function dinoBossVelo(c, W, H) {
 // chiama subito il prossimo boss, window.__dinoBoss("invasori") quello
 window.__dinoBoss = (tipo) => {
   if (tipo && !BOSS_GIOCHI[tipo]) return `boss: ${BOSS_ORDINE.join(", ")}`;
+  if (dino.boss) return `già in corso: ${dino.boss.tipo} (${dino.boss.fase})`;
   if (dino.stato === "pausa") dino.stato = "corsa";
   if (dino.stato !== "corsa") {
     dinoNuovaPartita();
@@ -18951,8 +18988,14 @@ function adattaHomeDino() {
   );
   // il dito che scorre (solo il minigioco del boss lo usa)
   window.addEventListener("pointermove", (e) => dinoBossPuntatore("muovi", e));
-  // finestra che perde il fuoco (Alt-Tab, clic fuori): i keyup non arrivano più
-  window.addEventListener("blur", dinoBossMolla);
+  // finestra che perde il fuoco (Alt-Tab): i keyup non arrivano più. A metà
+  // minigioco, che è a tempo, anche pausa
+  window.addEventListener("blur", () => {
+    dinoBossMolla();
+    if (dino.boss && dino.boss.fase === "gioco" && dino.stato === "corsa") dino.stato = "pausa";
+  });
+  // i rilasci dei tasti del minigioco anche se il fuoco è passato altrove
+  window.addEventListener("keyup", (e) => dinoBossTasto(e, false));
   // tenendo premuto iOS apriva la lente per spostare il cursore nel testo
   // (Vitto 08/10): fermare il pointerdown non basta, il gesto lungo lo
   // ferma solo il touchstart (non passivo). Il salto resta sul pointerdown.
@@ -18975,10 +19018,7 @@ function adattaHomeDino() {
       if (!e.repeat || dino.tieni) dinoTocca();
     }
   });
-  campo.addEventListener("keyup", (e) => {
-    dinoBossTasto(e, false);
-    lascia();
-  });
+  campo.addEventListener("keyup", lascia);
   // cabinato di nuovo visibile (tornando alla griglia) o app di nuovo in
   // primo piano: ridisegna e riaccendi l'atmosfera. Il ResizeObserver scatta
   // quando il riquadro ha davvero la misura nuova, anche passando da
@@ -19008,7 +19048,10 @@ function adattaHomeDino() {
   // ripartirebbe da solo al ritorno, senza la schermata Pausa
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") riaccendi();
-    else if (dino.stato === "corsa") dino.stato = "pausa";
+    else if (dino.stato === "corsa") {
+      dino.stato = "pausa";
+      dino.pausaSfondo = Date.now(); // il rientro online aspetta (dinoInGioco)
+    }
   });
 })();
 

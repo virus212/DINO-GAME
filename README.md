@@ -14,6 +14,8 @@ Italiano ovunque (UI, commenti, messaggi). Pixel art arancio su cielo al tramont
 - `ios-native/NativeAudioPlugin.swift` — suoni 8 bit nativi (`SuoniGioco.crea`: buffer sintetizzati)
 - `ios-native/OrientamentoPlugin.swift` — gira lo schermo in orizzontale per lo schermo intero
 - `tools/percorso/` — simulatore Node del piazzamento oggetti/ostacoli (programmazione dinamica su tutti i salti possibili)
+- `tools/prove/` — prove Playwright del boss (offline finto, nessun login né rete): `boss-giro`, `boss-schermo`, `boss-regressione`, `boss-casi`, `boss-home`.
+  Uso: `PW_DIR=~/crackify-redesign/node_modules BROWSER=webkit node tools/prove/boss-giro.mjs <cartella-foto>`. Escono con codice 0 se tutto passa e zero errori in console.
 
 ## Come si prova
 Il gioco parte dentro `enterOfflineMode()` (app.js) oppure, da desktop online, in fondo alla Home (`dinoSistema()`).
@@ -65,7 +67,8 @@ Il motore sta prima di `dinoDisegna` (cerca `—— BOSS: il motore`).
   - `collegaDino`: dita con coordinate e id, `pointermove`, frecce, rilasci anche in pausa, `blur`.
   - `dinoDom`: la classe `.boss` nasconde OFFLINE MODE.
   - `dinoNuovaPartita` e `dinoPrepara` azzerano il boss.
-  - `visibilitychange` hidden mette in pausa.
+  - `visibilitychange` hidden mette in pausa: vale anche per la corsa normale, che prima ripartiva da sola. Quella pausa resta protetta dal rientro online
+    (che ricarica l'app) per `DINO_PAUSA_TUTELA`, 5 minuti.
 - **Ritorno:** velocità di prima, `prossimoOggetto`/`prossimoErrore` spostati avanti, `dino.coda` segnaposto di `BOSS_RIPRESA` ms
   (stesso meccanismo di sempre: il simulatore resta valido), grazia `BOSS_GRAZIA`. Conseguenze in costanti, da decidere:
   vittoria `BOSS_PREMIO` + `BOSS_REGALO`; sconfitta `BOSS_SCONFITTA = "riprendi"` (meno `BOSS_PENALITA`) oppure `"muori"`.
@@ -74,7 +77,8 @@ Il motore sta prima di `dinoDisegna` (cerca `—— BOSS: il motore`).
   - Coordinate in unità del campo, che `dinoBossCampo` centra a ogni fotogramma (a schermo intero fra isola e bordo destro).
   - Il banner è circa 310×162 unità in verticale, 365×168 a schermo intero e fino a ~900×162 in Home.
   - Il dito arriva come `{ tipo: "giu" | "muovi" | "su", x, y, id }`. Il tasto arriva come `{ tasto: "sinistra" | "destra" | "su" | "giu" | "azione", giu }`.
-  - Vincoli: campo al massimo ~296×150 unità con misure pari; a schermo intero l'angolo in alto a destra è della ×.
+  - Vincoli: campo al massimo ~272×150 unità con misure pari (iPhone da 375 pt: banner largo 295); a schermo intero l'angolo in alto a destra è della ×.
+    Un errore nel minigioco chiude il boss «pari» (`dinoBossProva`) invece di bloccare il ciclo.
     Fisica propria a tick fisso 1000/60 (non quella del dino). Lo stato che cambia va su una tela propria (la cache di `dinoTela` si svuota oltre 160 chiavi).
     Con la musica accesa il gioco tace: ogni segnale deve essere anche visivo.
 - **Simulatore:** `node tools/percorso/run.mjs misto boss` aggiunge un boss ogni 20 s, col primo spawn dopo il ritorno forzato a oggetto. Risultato: 0 impossibili.
@@ -90,4 +94,4 @@ Il backend FastAPI di Crackify NON è in questo repo; il gioco offline non lo us
 - Rivedere: Stella, Mini, mina col paracadute, soffio di Godzilla, Boombox, virus Windows sul telefono vero
 - Spegnere `DINO_DIAG` (log dei bip) a suoni approvati
 - `haptic()` generico in app.js passa stili minuscoli → vibra sempre forte (il gioco usa `dinoVibra`, maiuscoli)
-- Test Playwright (webkit) esistevano in un altro workspace con credenziali: non inclusi
+- Test Playwright (webkit) esistevano in un altro workspace con credenziali: non inclusi (quelli del boss sì, in `tools/prove/`, senza credenziali)
