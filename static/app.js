@@ -14983,6 +14983,9 @@ const DINO_FONT = {
   A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
   B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
   X: ["#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#"],
+  // J per JETPACK, Q già che c'ero
+  J: ["..###", "...#.", "...#.", "...#.", "#..#.", "#..#.", ".##.."],
+  Q: [".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#"],
   // Y per CRAZY MODE, K e W già che c'ero
   Y: ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
   K: ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
@@ -15280,6 +15283,54 @@ const CUFFIE_SPRITE = [
   ".....oRo.....",
   "......o......",
 ];
+// Jetpack (bonus nuovo, 08/10, idea di Vitto: «il volo è in base a quanto
+// tieni premuto, con un cap di altezza»): due serbatoi argento col cono rosso
+// e le fasce arancio, collegati da una barra, con la fiamma sotto gli ugelli;
+// 18 x 24 celle da 1 unità (item.cella = 1). JETPACK_ZAINO è quello che il
+// dino porta sulla schiena, un serbatoio di lato; la fiamma vera la disegna
+// dinoDisegna mentre spinge.
+const JETPACK_SPRITE = [
+"..................",
+  "...ooo......ooo...",
+  "..orRRo....orRRo..",
+  ".orrRRRo..orrRRRo.",
+  ".oaabbco..oaabbco.",
+  ".oaabbco..oaabbco.",
+  ".oaabbcooooaabbco.",
+  ".osssssobbossssso.",
+  ".oSSSSSoccoSSSSSo.",
+  ".oaabbcoddoaabbco.",
+  ".oaabbcooooaabbco.",
+  ".oaabbco..oaabbco.",
+  ".oaabbco..oaabbco.",
+  ".oaabbco..oaabbco.",
+  ".oaabbco..oaabbco.",
+  ".oaabbco..oaabbco.",
+  "..oNNNo....oNNNo..",
+  "..ooooo....ooooo..",
+  "...FFF......FFF...",
+  "...FfF......FfF...",
+  "....f........f....",
+  "....u........u....",
+  "..................",
+  "..................",
+];
+const JETPACK_ZAINO = [
+"..oo..",
+  ".oRRo.",
+  "orRRRo",
+  "oaabco",
+  "oaabco",
+  "osssso",
+  "oSSSSo",
+  "oaabco",
+  "oaabco",
+  "oaabco",
+  "oaabco",
+  ".oNNo.",
+  ".oooo.",
+];
+const JETPACK_COLORI = { o: "#101520", a: "#f4f8ff", b: "#c9d6e8", c: "#9fb2cc", d: "#6f84a3", e: "#46566f", r: "#ff5a3a", R: "#c43a22", s: "#ff9a2e", S: "#8a4a10", n: "#2a2f3a", N: "#4a5262", f: "#ffe27a", F: "#ff8a2a", u: "#ff4a2a" };
 // Boombox (il drop del basso; dal 08/10 al posto della cassa, Vitto: «mi
 // sembrano troppo banali l'item e l'effetto»): lo stereo anni '80 col
 // manico, due casse, la cassetta in mezzo e i led. In due pose che si
@@ -15522,20 +15573,21 @@ const STELLA_COLORI = ["#ffd23f", "#ff8a2a", "#ff3b6b", "#b26bff", "#39c6ff", "#
 // nell'estrazione (Godzilla il più raro), colore di alone e barretta
 // (durata 0 = effetto immediato: il drop del basso)
 const OGGETTI = {
-  scaglia: { nome: "Godzilla!", sotto: "Spacca tutto", durata: 8000, peso: 0.15, colore: "#7dff4a", cella: 1, sprite: SCAGLIA_SPRITE, colori: { "#": "#1a1405", y: "#fff0a0", Y: "#ffd23f", z: "#e8b020", Z: "#b9830f", q: "#7a5508", k: "#141414", K: "#4a3a10", g: "#58e02a", G: "#c6ff9a" } },
-  stella: { nome: "Stella!", sotto: "Invincibile", durata: 8000, peso: 0.2, colore: "#ffd23f", sprite: STELLA_SPRITE, colori: { "#": "#ffd23f", k: "#141414" } },
-  cuffie: { nome: "Scudo!", sotto: "Para un colpo", durata: 15000, peso: 0.25, colore: "#4fb0ff", sprite: CUFFIE_SPRITE, colori: { o: "#0a1d4a", r: "#eaf4ff", R: "#7f9bc8", w: "#ffffff", l: "#8fd0ff", m: "#4fa5f5", b: "#2272dc", d: "#154ba6", y: "#ffe27a", Y: "#e0a21a" } },
+  scaglia: { nome: "Godzilla!", sotto: "Spacca tutto", durata: 8000, peso: 0.12, colore: "#7dff4a", cella: 1, sprite: SCAGLIA_SPRITE, colori: { "#": "#1a1405", y: "#fff0a0", Y: "#ffd23f", z: "#e8b020", Z: "#b9830f", q: "#7a5508", k: "#141414", K: "#4a3a10", g: "#58e02a", G: "#c6ff9a" } },
+  stella: { nome: "Stella!", sotto: "Invincibile", durata: 8000, peso: 0.17, colore: "#ffd23f", sprite: STELLA_SPRITE, colori: { "#": "#ffd23f", k: "#141414" } },
+  cuffie: { nome: "Scudo!", sotto: "Para un colpo", durata: 15000, peso: 0.2, colore: "#4fb0ff", sprite: CUFFIE_SPRITE, colori: { o: "#0a1d4a", r: "#eaf4ff", R: "#7f9bc8", w: "#ffffff", l: "#8fd0ff", m: "#4fa5f5", b: "#2272dc", d: "#154ba6", y: "#ffe27a", Y: "#e0a21a" } },
   basso: {
     nome: "Boombox!",
     sotto: "Bass drop",
     durata: 0,
-    peso: 0.2,
+    peso: 0.16,
     colore: "#ff5fd2",
     sprite: BASSO_SPRITE,
     pose: BASSO_POSE,
     colori: { "#": "#2b2b33", B: "#4a4a55", h: "#c9c9ce", s: "#8c8c96", c: "#ff6a00", C: "#ffb066", k: "#141414", w: "#9fd8ff", t: "#26262c", l: "#ff8a2a", g: "#7dff4a", b: "#c9c9ce" },
   },
-  pozione: { nome: "Mini!", sotto: "Piccolo piccolo", durata: 8000, peso: 0.2, colore: "#d14bff", sprite: POZIONE_SPRITE, colori: { k: "#b07040", g: "#e6e6f0", p: "#d14bff", b: "#f5c6ff" } },
+  pozione: { nome: "Mini!", sotto: "Piccolo piccolo", durata: 8000, peso: 0.16, colore: "#d14bff", sprite: POZIONE_SPRITE, colori: { k: "#b07040", g: "#e6e6f0", p: "#d14bff", b: "#f5c6ff" } },
+  jetpack: { nome: "Jetpack!", sotto: "Tieni premuto e vola", durata: 9000, peso: 0.19, colore: "#ff7a2a", cella: 1, sprite: JETPACK_SPRITE, colori: JETPACK_COLORI },
 };
 
 const dino = {
@@ -15881,6 +15933,26 @@ function dinoSpinta() {
 // finendo l'effetto) a mezz'aria la velocità si riscala con la radice del
 // cambio di gravità, così la quota resta continua: prima, con la gravità
 // dimezzata e la spinta intera, si volava altissimo.
+// Il jetpack (08/10): tieni premuto e sali, rilasci e scendi piano. Un tocco
+// breve è un saltello (JET_DECOLLO ≈ 42 unità di picco, abbastanza per mine,
+// mixer e cristalli); tenendo premuto spinge fino a JET_SALITA e si ferma a
+// JET_TETTO (sotto il punteggio: sopra i cristalli e le mine, ma i fantasmini
+// alti, che occupano 41-69, restano da evitare volando sotto i 19). Il
+// «serbatoio» è il tempo del potere: spingere ne brucia JET_CONSUMO volte più
+// in fretta, così la barra a tacche sopra la testa è anche il carburante.
+const JET_DECOLLO = 0.34; // px/ms
+const JET_SALITA = 0.19;
+const JET_ACCEL = 0.0045; // px/ms², oltre alla gravità
+const JET_CADUTA = 0.22; // velocità massima di discesa (plana)
+const JET_TETTO = 56;
+const JET_CONSUMO = 1.3;
+function dinoJet() {
+  return !!(dino.potere && dino.potere.tipo === "jetpack");
+}
+/** Sta spingendo adesso: dito giù, carburante, partita in corsa. */
+function dinoJetSpinge() {
+  return dinoJet() && dino.tieni && dino.potere.fine > dino.corsa && dino.stato === "corsa";
+}
 const MINI_GRAVITA = 1.87;
 const MINI_SALTO_V = 1.55;
 const MINI_RADICE = Math.sqrt(MINI_GRAVITA);
@@ -15915,6 +15987,14 @@ function dinoTocca() {
     if (!dino.carica && !dino.soffio) {
       dino.carica = { inizio: dino.corsa, tacche: 0 };
       dino.potere.provato = true; // basta il suggerimento
+    }
+  } else if (dinoJet()) {
+    // jetpack: tieni premuto e sali (dinoPasso); da terra parte con un
+    // saltello, così anche un tocco breve scavalca un ostacolo
+    dino.tieni = true;
+    if (dino.y === 0) {
+      dino.vy = JET_DECOLLO;
+      dinoSuono("salto");
     }
   } else if (dino.y === 0) {
     dino.vy = dinoSpinta();
@@ -16035,6 +16115,19 @@ function dinoAmbiente(dt) {
   });
   dino.scritte = dino.scritte.filter((s) => s.vita < 800);
   dino.scossa = Math.max(0, dino.scossa - dt);
+  // il jetpack spinge: fumo che scende e scintille arancio dall'ugello
+  if (dinoJetSpinge() && Math.random() < dt / 28) {
+    const y0 = dinoTerra() - dino.y - DINO_H;
+    dino.particelle.push({
+      x: dinoX() + 3 + Math.random() * 5,
+      y: y0 + 24 + Math.random() * 4,
+      vx: -0.05 - Math.random() * 0.06,
+      vy: -0.04 - Math.random() * 0.06,
+      vita: 0,
+      durata: 420,
+      colore: Math.random() < 0.55 ? "#9a9aa5" : Math.random() < 0.5 ? "#ffb02e" : "#ff6a1a",
+    });
+  }
   // il mini lascia scintille viola dai piedi (un buff si deve vedere)
   if (dino.stato === "corsa" && dinoMini() && Math.random() < dt / 90) {
     dino.particelle.push({
@@ -16078,11 +16171,34 @@ function dinoAvanza(dt) {
 
 function dinoPasso(dt) {
   const fot = dt / DINO_FOTOGRAMMA; // fotogrammi di Chrome in questo passo
+  // jetpack: la spinta (e il carburante che brucia), suono e vibrazione
+  const spinge = dinoJetSpinge();
+  if (spinge) {
+    const p = dino.potere;
+    p.fine -= dt * JET_CONSUMO;
+    p.provato = true;
+    if (dino.y >= JET_TETTO) {
+      dino.y = JET_TETTO;
+      dino.vy = Math.min(dino.vy, 0);
+    } else if (dino.vy < JET_SALITA) {
+      dino.vy = Math.min(JET_SALITA, dino.vy + (JET_ACCEL + DINO_G) * dt);
+    }
+    if (dino.corsa - (p.ultimoJet || -1e9) > 85) {
+      p.ultimoJet = dino.corsa;
+      dinoSuono("jet");
+      if (dino.corsa - (p.ultimaVibra || -1e9) > 170) {
+        p.ultimaVibra = dino.corsa;
+        dinoVibra("LIGHT");
+      }
+    }
+  }
   if (dino.y > 0 || dino.vy > 0) {
     dino.y += dino.vy * dt;
     dino.vy -= DINO_G * (dinoMini() ? MINI_GRAVITA : 1) * dt;
+    // il jetpack plana: la discesa ha una velocità massima
+    if (dinoJet() && dino.vy < -JET_CADUTA) dino.vy = -JET_CADUTA;
     // oltre 63 px (suoi) la salita rallenta di colpo, come in Chrome
-    if (dino.y > dino.taglio && dino.vy > DINO_TAGLIO_VY) dino.vy = DINO_TAGLIO_VY;
+    if (!dinoJet() && dino.y > dino.taglio && dino.vy > DINO_TAGLIO_VY) dino.vy = DINO_TAGLIO_VY;
     if (dino.y <= 0) {
       dino.y = 0;
       dino.vy = 0;
@@ -17077,6 +17193,7 @@ function dinoDisegna() {
     dinoPixel(c, MINI_SPRITE, x0 + 6, my, colori);
     dinoPixel(c, mz, x0 + 6, my + MINI_SPRITE.length * DINO_CELLA, colori);
   }
+  if (forma === "jetpack" && !sfarfalla) dinoDisegnaJetpack(c, x0, y0);
   if (forma === "cuffie") {
     // lo scudo: bolla di energia blu attorno al dinosauro (Vitto 08/10: il
     // fascio di luce davanti «non sembra nemmeno uno scudo»). Si somma alla
@@ -17312,6 +17429,10 @@ function dinoDisegna() {
   if (dino.potere && dino.potere.tipo === "pozione" && !dino.potere.provato && dino.stato === "corsa" && Math.floor(dino.corsa / 450) % 3 !== 2) {
     // il mini: finché non ci provi, come si fa il secondo salto
     dinoScritta(c, "Tocca ancora in aria", W / 2, terra - 70, "#f5c6ff", DINO_FONT_PICCOLO);
+  }
+  if (dino.potere && dino.potere.tipo === "jetpack" && !dino.potere.provato && dino.stato === "corsa" && Math.floor(dino.corsa / 450) % 3 !== 2) {
+    // il jetpack: finché non ci provi, come si vola
+    dinoScritta(c, "Tieni premuto per volare", W / 2, terra - 72, "#ffd2a8", DINO_FONT_PICCOLO);
   }
   if (dino.potere && dino.potere.tipo === "scaglia" && !dino.potere.provato && dino.stato === "corsa") {
     // Godzilla: finché non ci provi, come si spara
@@ -17927,6 +18048,31 @@ function dinoDisegnaOstacolo(c, o, terra, posa, lucina) {
   }
 }
 
+/** Lo zaino sulla schiena e, se spinge, la fiamma sotto l'ugello: arancio
+ * fuori, giallo dentro, punta rossa, che guizza. */
+function dinoDisegnaJetpack(c, x0, y0) {
+  const px = x0 + 2;
+  const py = y0 + 9;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(dinoTela("zaino", JETPACK_ZAINO, JETPACK_COLORI), px, py, JETPACK_ZAINO[0].length, JETPACK_ZAINO.length);
+  c.imageSmoothingEnabled = true;
+  if (!dinoJetSpinge()) return;
+  const t = dino.corsa;
+  const cx = px + 3; // sotto l'ugello
+  const by = py + JETPACK_ZAINO.length; // il fondo dello zaino
+  const lung = 5 + ((Math.floor(t / 35) * 7) % 5);
+  for (let r = 0; r < lung; r++) {
+    const k = r / lung;
+    const ancora = r < lung - 1;
+    c.fillStyle = k < 0.45 ? "#ff9a2e" : k < 0.8 ? "#ff6a1a" : "#ff3b1a";
+    c.fillRect(cx - (k < 0.6 ? 1 : 0), by + r, k < 0.6 ? 3 : 1, 1);
+    if (ancora && k < 0.7) {
+      c.fillStyle = "#ffe27a";
+      c.fillRect(cx, by + r, 1, 1);
+    }
+  }
+}
+
 /** Il dinosauro (DINO_SPRITE). Le celle da 1 unità sono 3,5 px veri sul
  * telefono: a rettangoli verrebbero le righine fra una cella e l'altra,
  * quindi lo sprite si compone a 1 px per cella su una tela a parte (in
@@ -18317,6 +18463,9 @@ function dinoSuono(nome) {
     rumore(0.35, 260, 0.35);
     tono(100, 35, 0.6, 0.25, 0.6);
     tono(100, 35, 0.85, 0.25, 0.4);
+  } else if (nome === "jet") {
+    // jetpack: un soffio di propulsore, ripetuto finché spinge
+    rumore(0.1, 1100, 0, 0.3);
   } else if (nome === "pozione") {
     // pozione: scivolata in giù, ci si rimpicciolisce
     tono(1568, 392, 0, 0.3, 0.6);
