@@ -30,7 +30,8 @@ await page.waitForFunction(() => __dino.boss, null, { timeout: 5000 });
 const b = await page.evaluate(() => ({ tipo: __dino.boss.tipo, punti: Math.floor(__dino.punti) }));
 verifica(b.tipo === "invasori" && b.punti >= 1000, `a 1000 punti parte il primo boss: ${JSON.stringify(b)}`);
 await page.waitForFunction(() => __dino.boss && __dino.boss.fase === "gioco", null, { timeout: 20000 });
-await page.evaluate(() => BOSS_GIOCHI.invasori.tasto(__dino.boss.gioco, { tasto: "destra", giu: true }));
+// vittoria: tutti gli alieni giù
+await page.evaluate(() => __dino.boss.gioco.alieni.forEach((a) => (a.vivo = false)));
 await page.waitForFunction(() => !__dino.boss, null, { timeout: 6000 });
 const dopo = await page.evaluate(() => ({ prossimo: __dino.prossimoBoss, punti: Math.floor(__dino.punti), visti: __dino.bossVisti }));
 verifica(dopo.prossimo === 2300 && dopo.visti === 1, `la soglia dopo: ${JSON.stringify(dopo)}`);

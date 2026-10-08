@@ -8,6 +8,9 @@ const ko = [];
 const verifica = (cond, testo) => (cond ? ok : ko).push(testo);
 
 const { browser, page, errori } = await apri();
+// il motore si prova col segnaposto (tocco a destra vince, a sinistra perde),
+// registrato qui come boss «prova»: i minigiochi veri hanno le loro prove
+await page.evaluate(() => (BOSS_GIOCHI.prova = BOSS_SEGNAPOSTO));
 const stato = () =>
   page.evaluate(() => {
     const d = window.__dino;
@@ -50,7 +53,7 @@ await page.evaluate(() => {
     orig(b, f);
   };
 });
-await page.evaluate(() => window.__dinoBoss("invasori"));
+await page.evaluate(() => window.__dinoBoss("prova"));
 // le fasi in ordine, campionate
 const viste = [];
 const t0 = Date.now();
@@ -133,7 +136,7 @@ await pulisci();
 
 // —— sconfitta: game over (BOSS_SCONFITTA = "muori"), record salvato
 await page.waitForTimeout(500);
-await page.evaluate(() => window.__dinoBoss("scimmione"));
+await page.evaluate(() => window.__dinoBoss("prova"));
 await aspettaFase("gioco", 20000);
 await page.waitForTimeout(300); // BOSS_SORDO
 await toccaCampo(30, 50);
@@ -144,7 +147,7 @@ verifica(s.stato === "fine" && causa === "Battuto dal boss" && !s.fase, `sconfit
 
 // —— niente salti col boss arrivato: un tocco nell'incontro non fa saltare
 await page.waitForTimeout(600);
-await page.evaluate(() => window.__dinoBoss("labirinto"));
+await page.evaluate(() => window.__dinoBoss("prova"));
 await aspettaFase("incontro", 20000);
 await page.locator("#dinoCampo").tap();
 await page.waitForTimeout(80);

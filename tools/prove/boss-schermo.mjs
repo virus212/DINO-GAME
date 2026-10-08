@@ -34,10 +34,11 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
 // —— 1. schermo intero in orizzontale
 {
   const { browser, page, errori } = await apri({ largo: 852, alto: 393, schermo: true });
+  await page.evaluate(() => (BOSS_GIOCHI.prova = BOSS_SEGNAPOSTO)); // il motore col segnaposto
   const misura = await page.evaluate(() => ({ w: Math.round(__dino.w), h: Math.round(__dino.h), zoom: __dino.zoom, aperto: dinoSchermoAperto() }));
   verifica(misura.aperto && misura.zoom > 1, `schermo intero aperto: ${JSON.stringify(misura)}`);
   await page.locator("#dinoCampo").tap();
-  await giro(page, "labirinto");
+  await giro(page, "prova");
   await page.waitForTimeout(300);
   await foto(page, `${OUT}/7-schermo-intero.png`, true);
   // tocco a destra del campo ingrandito: deve vincere
@@ -46,7 +47,7 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
   verifica((await page.evaluate(() => __dino.boss.esito)) === "vinto", "schermo intero: il tocco ingrandito arriva nel posto giusto (vinto)");
   await finito(page);
   // —— 2. si chiude lo schermo intero a metà minigioco: pausa, misure nuove, si riprende
-  await giro(page, "invasori");
+  await giro(page, "prova");
   const prima = await page.evaluate(() => Math.round(__dino.w));
   await page.evaluate(() => chiudiSchermoDino());
   await page.waitForTimeout(400);
@@ -66,6 +67,7 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
 // —— 3. tastiera (desktop) e «riduci movimento»
 {
   const { browser, page, errori } = await apri({ largo: 1280, alto: 800, ridotto: true });
+  await page.evaluate(() => (BOSS_GIOCHI.prova = BOSS_SEGNAPOSTO)); // il motore col segnaposto
   await page.locator("#dinoCampo").tap();
   await page.evaluate(() => {
     window.__tempi = [];
@@ -75,7 +77,7 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
       orig(b, f);
     };
   });
-  await giro(page, "scimmione");
+  await giro(page, "prova");
   await page.locator("#dinoCampo").focus();
   // le frecce in su / giù non devono far saltare il dino né finire il gioco
   await page.keyboard.press("ArrowUp");
@@ -91,7 +93,7 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
   verifica(entra && entra[1] <= 260, `riduci movimento: la tendina dura ${entra && entra[1]} ms`);
   const misura = await page.evaluate(() => ({ w: Math.round(__dino.w), h: Math.round(__dino.h) }));
   verifica(true, `desktop: mondo ${misura.w}x${misura.h}`);
-  await giro(page, "labirinto");
+  await giro(page, "prova");
   await page.waitForTimeout(150);
   await foto(page, `${OUT}/8-largo.png`);
   tuttiErrori.push(...errori);
@@ -101,12 +103,13 @@ const finito = (page) => page.waitForFunction(() => !window.__dino.boss, null, {
 // —— 4. input: rilasci persi, mouse sospeso, frecce da fuori, Ctrl+freccia, spazio col menu aperto
 {
   const { browser, page, errori } = await apri({ largo: 1280, alto: 800 });
+  await page.evaluate(() => (BOSS_GIOCHI.prova = BOSS_SEGNAPOSTO)); // il motore col segnaposto
   await page.locator("#dinoCampo").tap();
-  await giro(page, "invasori");
+  await giro(page, "prova");
   // spia sul minigioco: cosa gli arriva
   await page.evaluate(() => {
     window.__arrivi = [];
-    const g = BOSS_GIOCHI.invasori;
+    const g = BOSS_GIOCHI.prova;
     const dito = g.dito;
     const tasto = g.tasto;
     g.dito = (gg, ev) => (window.__arrivi.push("dito " + ev.tipo), dito(gg, ev));
