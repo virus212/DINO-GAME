@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>CRACKIFY</title>
+  <meta name="theme-color" content="#121212" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- black-translucent: contenuto full-bleed + safe-area (obbligatorio per PWA iOS) -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CRACKIFY" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <!-- tema UI: classic | liquid-glass (default). Cambiare con CRACKIFY.setUiTheme(...) -->
+  <script>
+    (function () {
+      var t = "liquid-glass";
+      try {
+        t = localStorage.getItem("crackify.uiTheme") || t;
+      } catch (e) {}
+      if (t !== "classic" && t !== "liquid-glass") t = "liquid-glass";
+      document.documentElement.setAttribute("data-ui-theme", t);
+    })();
+  </script>
+  <link rel="manifest" href="/manifest.webmanifest?v=78" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=2" />
+  <link rel="stylesheet" href="/style.css?v=394" />
+  <!-- Gate login PRIMA di app.js (niente flash app senza auth) -->
+  <script>
+    (function () {
+      // App nativa (Capacitor) senza indirizzo del Mac ancora configurato:
+      // il login non serve a nulla finché non sappiamo dove parlare — lascia
+      // gestire tutto al pannello "Connetti al tuo Mac" di app.js, altrimenti
+      // questo gate lo coprirebbe (z-index più alto, forzato via CSS).
+      var isNative = false;
+      try {
+        isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      } catch (e) {}
+      // WKWebView nativo non riceve lo stesso trattamento "safe area" che
+      // Safari applica da sé in modalità PWA — serve un padding esplicito
+      // sul fondo (vedi .native-shell .mobile-nav in style.css).
+      if (isNative) document.documentElement.classList.add("native-shell");
+      var hasApiBase = false;
+      try { hasApiBase = !!localStorage.getItem("crackify_api_base"); } catch (e) {}
+      if (isNative && !hasApiBase) return;
+
+      var tok = null;
+      try { tok = localStorage.getItem("crackify.session"); } catch (e) {}
+      // cookie mirror
+      if (!tok) {
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)crackify_token=([^;]+)/);
+          if (m) tok = decodeURIComponent(m[1]);
+        } catch (e) {}
+      }
+      window.__CRACKIFY_HAS_TOKEN__ = !!tok;
+      if (!tok) {
+        document.documentElement.classList.add("need-login");
+      }
+    })();
+  </script>
+  <script src="/app.js?v=409" defer></script>
+</head>
+<body class="auth-checking">
+  <!-- Intro animazione (primo accesso + refresh) -->
+  <div id="introSplash" class="intro-splash" aria-hidden="false">
+    <iframe
+      id="introFrame"
+      src="/intro/index.html"
+      title="CRACKIFY intro"
+      allow="autoplay"
+    ></iframe>
+    <button type="button" id="introSkip" class="intro-skip">Salta intro</button>
+  </div>
+
+  <div class="glow glow-a"></div>
+  <div class="glow glow-b"></div>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="/icons/icon-192.png?v=2" alt="" />
+        </span>
+        <span class="brand-name">CRACKIFY</span>
+        <button type="button" id="accountChip" class="account-chip user-banner" title="Account">
+          <span id="accountAvatar" class="account-avatar" aria-hidden="true"></span>
+          <span class="account-meta">
+            <span id="accountName" class="account-name">Guest</span>
+            <span id="guestNote" class="account-sub">Tocca per accedere</span>
+          </span>
+          <span class="account-chevron" aria-hidden="true">›</span>
+        </button>
+      </div>
+      <nav>
+        <a href="#" class="nav-link active" data-view="home">
+          <span class="nav-ico" aria-hidden="true">
+            <!-- home -->
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <path d="M12 2.2 1.5 11h3.1v10h6.1v-6.4h2.6V21h6.1V11h3.1L12 2.2z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Home</span>
+        </a>
+        <a href="#" class="nav-link" data-view="search">
+          <span class="nav-ico" aria-hidden="true">
+            <!-- search -->
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Cerca</span>
+        </a>
+        <a href="#" class="nav-link" data-view="playlists">
+          <span class="nav-ico" aria-hidden="true">
+            <!-- la tua libreria, stile Spotify -->
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <rect x="2" y="3" width="4" height="18" rx="1.5"/>
+              <rect x="9" y="3" width="4" height="18" rx="1.5"/>
+              <path d="M16 3 L21 8 L21 21 L16 21 Z"/>
+            </svg>
+          </span>
+          <span class="nav-label">La tua libreria</span>
+        </a>
+        <a href="#" class="nav-link" data-view="dj" id="navDjDesktop" aria-label="Apri JARVIS, il tuo DJ">
+          <span class="nav-ico" aria-hidden="true">
+            <!-- DJ / equalizer -->
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <rect x="4" y="9" width="3" height="6" rx="1.5"/>
+              <rect x="10.5" y="4" width="3" height="16" rx="1.5"/>
+              <rect x="17" y="11" width="3" height="4" rx="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-label">DJ</span>
+        </a>
+      </nav>
+      <!-- Le tue playlist nella sidebar (solo desktop): prima qui sotto la
+           nav c'era solo spazio vuoto. Stessa roba della tab "La tua
+           libreria", in forma compatta, cosi' e' raggiungibile da ovunque
+           senza cambiare vista. Impaginazione presa dal prototipo. -->
+      <div class="side-library">
+        <div class="side-label"><span>Le tue playlist</span></div>
+        <div id="sideLibList" class="side-list"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="mobile-topbar">
+        <span class="mobile-topbar-mark" aria-hidden="true">
+          <img src="/icons/icon-192.png?v=2" alt="" />
+        </span>
+        <span class="mobile-topbar-name">CRACKIFY</span>
+        <button type="button" id="btnOnlineUsers" class="mobile-online-btn" title="Tossici online" aria-label="Tossici online">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <!-- persona dietro (destra): testa + spalle parziali -->
+            <circle cx="16.6" cy="8" r="2.5"/>
+            <path d="M16 13.4c2.9 0 5 1.9 5 4.9"/>
+            <!-- persona davanti (sinistra): testa + corpo ad arco completo -->
+            <circle cx="9" cy="7.2" r="3.1"/>
+            <path d="M2.9 19.1c0-3.6 2.6-5.8 6.1-5.8s6.1 2.2 6.1 5.8"/>
+          </svg>
+          <span id="onlineUsersBadge" class="online-users-badge hidden">0</span>
+        </button>
+        <button type="button" id="btnAccountMobile" class="mobile-account-btn" title="Account" aria-label="Account"></button>
+        <div id="onlineUsersPanel" class="online-users-panel hidden">
+          <div class="online-users-panel-title">Tossici online</div>
+          <div id="onlineUsersList" class="online-users-list"></div>
+          <p id="onlineUsersEmpty" class="online-users-empty hidden">Nessuno sta ascoltando ora</p>
+        </div>
+      </div>
+
+      <!-- HOME VIEW -->
+      <section id="viewHome" class="view">
+        <header class="top">
+          <!-- la ricerca vera vive in #viewSearch: questa è la porta
+               d'ingresso, al primo carattere passa il testimone a quella -->
+          <div class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="homeSearchEntry"
+              type="search"
+              placeholder="Cerca artisti, playlist o album"
+              autocomplete="off"
+            />
+            <button type="button" id="homeTrackSearchBtn" class="track-search-btn" title="Cerca un brano da scaricare">Brani</button>
+          </div>
+        </header>
+
+        <!-- griglia fissa in cima alla Home, stile Spotify (scorciatoie
+             2 colonne) — popolata da loadHomeQuickGrid in app.js:
+             1 brani salvati, 2 Discovery Weekly, 3 ultima playlist aperta,
+             4 ultima cercata (o consigliata se coincide con la 3),
+             5 ultimo artista, 6 Top 50 Globale -->
+        <div id="homeQuickGrid" class="home-quick-grid"></div>
+
+        <!-- Banner JARVIS (il DJ AI) — apre #nowPlayingSheet in modalità
+             JARVIS, vedi openDjSheet in app.js. Sempre visibile (a
+             differenza delle sezioni sotto, che dipendono dai dati): non
+             ha bisogno di caricare nulla. -->
+        <section id="homeDjSection" class="home-section home-dj-section">
+          <button type="button" id="homeDjCard" class="home-dj-card" aria-label="Apri JARVIS, il tuo DJ">
+            <div class="dj-soundbar dj-soundbar-mini" id="homeDjSoundbar" aria-hidden="true">
+              <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+              <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+              <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+              <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+              <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+              <span class="dj-bar"></span>
+            </div>
+          </button>
+        </section>
+
+        <section id="homeDailyMixSection" class="home-section hidden">
+          <h2 class="home-section-title home-section-title-brand">Daily Mix</h2>
+          <div id="homeDailyMixGrid" class="pl-grid pl-carousel"></div>
+        </section>
+
+
+
+
+        <section id="homeChartsSection" class="home-section">
+          <div class="home-section-head">
+            <h2 class="home-section-title home-section-title-brand">Classifiche</h2>
+            <button type="button" id="btnChartsShowAll" class="home-section-more">Mostra tutte</button>
+          </div>
+          <div id="homeChartsGrid" class="pl-grid pl-carousel"></div>
+        </section>
+
+        <section id="homeRadioSection" class="home-section hidden">
+          <h2 class="home-section-title home-section-title-brand">La tua radio</h2>
+          <div id="homeRadioGrid" class="pl-grid pl-carousel"></div>
+        </section>
+
+        <section id="homeRecommendedSection" class="home-section hidden">
+          <h2 class="home-section-title home-section-title-brand">Playlist consigliate</h2>
+          <div id="homeRecommendedGrid" class="pl-grid pl-carousel"></div>
+        </section>
+
+        <!-- il gioco del dinosauro, da computer: app.js (dinoSistema) ci sposta
+             dentro il banner intero quando sei online -->
+        <section id="homeDinoSlot" class="home-section home-dino" aria-label="Gioco"></section>
+        <div id="homeEmptyState" class="home-empty hidden">
+          <p>Nessun brano o playlist trovato tra i nostri tossici 💊</p>
+        </div>
+      </section>
+
+      <!-- SEARCH VIEW -->
+      <!-- PAGINA CERCA — è tornata una pagina vera (Vitto, 19/09): in cima
+           la stessa fascia della Home (il guscio Mac ci sposta dentro
+           chevron e icone, vedi shell.js), sotto il layout del prototipo.
+           Gli id sono rimasti quelli di prima ("home*") apposta: tutta la
+           logica di ricerca in app.js continua a funzionare senza una riga
+           riscritta, è solo il markup ad essersi spostato. -->
+      <section id="viewSearch" class="view hidden">
+        <header class="top">
+          <div class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="homeSearchInput"
+              type="search"
+              placeholder="Cerca artisti, playlist o album"
+              autocomplete="off"
+            />
+            <button type="button" id="homeSearchClear" class="search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+            <!-- apre la ricerca brani (Telegram) in finestra: unica barra,
+                 due profondità di ricerca -->
+            <button type="button" id="btnTrackSearch" class="track-search-btn" title="Cerca un brano da scaricare">Brani</button>
+          </div>
+          <div id="homeSearchHistory" class="search-history hidden"></div>
+        </header>
+
+        <!-- intestazione in stile prototipo: occhiello, titolo,
+             sottotitolo. Senza query presenta la pagina, con una query
+             diventa «Risultati per "x"» (vedi app.js). Solo desktop. -->
+        <div id="homeSearchHeading" class="home-search-heading">
+          <span class="home-search-eyebrow">Cerca</span>
+          <h1 id="homeSearchHeadingTitle">Trova il tuo prossimo ascolto.</h1>
+          <p class="home-search-sub" id="homeSearchSub">Cerca un artista, un album o una canzone.</p>
+        </div>
+
+        <div id="homeSearchFilterRow" class="home-search-filter-row hidden">
+          <!-- non è un filtro (niente data-filter): apre la ricerca brani.
+               Primo della fila per scelta di Vitto (19/09) -->
+          <button type="button" id="homeSearchTracksChip" class="page-btn">Brani</button>
+          <button type="button" class="page-btn active" data-filter="all">Tutte</button>
+          <button type="button" class="page-btn" data-filter="artist">Artisti</button>
+          <button type="button" class="page-btn" data-filter="album">Album</button>
+          <button type="button" class="page-btn" data-filter="playlist">Playlist</button>
+        </div>
+
+        <section id="homeArtistsSection" class="home-section hidden">
+          <h2 class="home-section-title" id="homeArtistsTitle">Artisti</h2>
+          <div id="homeArtistsGrid" class="pl-grid"></div>
+        </section>
+
+        <section id="homeDeezerSection" class="home-section hidden">
+          <h2 class="home-section-title" id="homeDeezerTitle">Playlist trovate</h2>
+          <div id="homeDeezerGrid" class="pl-grid"></div>
+        </section>
+
+        <section id="homeAlbumsSection" class="home-section hidden">
+          <h2 class="home-section-title" id="homeAlbumsTitle">Album</h2>
+          <div id="homeAlbumsGrid" class="pl-grid"></div>
+        </section>
+
+        <!-- "Sfoglia i generi": le 26 classifiche Deezer come piastrelle,
+             come nel prototipo. È il contenuto della pagina a riposo,
+             sparisce appena scrivi (vedi aggiornaIntestazioneCerca). -->
+        <section id="generiSection" class="generi-section hidden">
+          <h2 class="home-section-title" id="generiTitle">Sfoglia i generi</h2>
+          <div id="generiGrid" class="generi-grid"></div>
+        </section>
+
+        <!-- il gradino dopo la griglia dei generi: quelle sono cose da
+             andare a prendere, queste ci sono già. Il sottotitolo lo dice,
+             così il salto fra i due blocchi si capisce. -->
+        <section id="recentServerSection" class="recent-server-section">
+          <h2 class="recent-server-title">Aggiunte di recente al server</h2>
+          <p class="recent-server-sub">Già scaricate: partono subito, senza passare da Telegram.</p>
+          <div id="recentServerList" class="recent-server-list"></div>
+        </section>
+
+      </section>
+
+      <!-- LIBRARY VIEW (brani salvati, dentro "La tua libreria") -->
+      <section id="viewLibrary" class="view hidden">
+        <!-- fascia a scomparsa: non c'è finché non scorri oltre la
+             copertina, poi scende. Non occupa spazio a riposo (la hero
+             risale di quanto è alta lei, vedi style.css) e il fondo
+             ricopia il colore che stava in cima alla pagina. -->
+        <header class="top crk-top-rivela">
+          <div class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="savedSearchEntry"
+              type="search"
+              placeholder="Cerca artisti, playlist o album"
+              autocomplete="off"
+            />
+            <button type="button" id="savedTrackSearchBtn" class="track-search-btn" title="Cerca un brano da scaricare">Brani</button>
+          </div>
+        </header>
+
+        <!-- da telefono "Cerca nei salvati" sta qui, sopra lo schermo: stando
+             in cima si tira giù col dito e la pagina scende con lei (04/10,
+             vedi il blocco "Cerca nei salvati da tirare giù" in app.js) -->
+        <div id="libTiro" class="lib-tiro">
+          <div class="lib-tiro-fondo"></div>
+          <div class="lib-tiro-campo"></div>
+        </div>
+        <section class="pl-hero">
+          <button type="button" id="btnLibBack" class="pl-hero-back" title="La tua libreria" aria-label="La tua libreria">←</button>
+          <div class="pl-hero-cover pl-hero-cover-saved">♥</div>
+          <div class="pl-hero-info">
+            <span class="pl-hero-kicker">Playlist</span>
+            <h1>Brani salvati</h1>
+            <div id="libHeroMeta" class="pl-hero-meta">
+              <span id="libHeroAvatar" class="pl-hero-avatar" aria-hidden="true">⚡</span>
+              <span id="libHeroMetaText" class="pl-hero-meta-text">—</span>
+            </div>
+          </div>
+        </section>
+        <div class="pl-action-row">
+          <button type="button" id="btnLibPlay" class="lib-play-btn" title="Riproduci brani salvati" aria-label="Riproduci">
+            <svg id="libIcoPlay" viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+            </svg>
+            <svg id="libIcoPause" class="hidden" viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>
+            </svg>
+            <!-- etichetta solo da desktop (vedi style.css): da telefono il
+                 tasto resta il tondo di sempre -->
+            <span class="pl-play-label" id="libPlayLabel">Riproduci</span>
+          </button>
+          <button type="button" id="btnLibShuffle" class="pl-offline-btn pl-shuffle-btn" title="Shuffle: off" aria-label="Riproduzione casuale" aria-pressed="false">
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+              <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+            </svg>
+          </button>
+          <button type="button" id="btnLibOffline" class="pl-offline-btn hidden" title="Scarica per l'ascolto offline" aria-label="Scarica per l'ascolto offline">
+            <svg id="libOfflineIcoDownload" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M13 3a1 1 0 1 0-2 0v9.586l-3.293-3.293a1 1 0 1 0-1.414 1.414l5 5a1 1 0 0 0 1.414 0l5-5a1 1 0 0 0-1.414-1.414L13 12.586V3z"/>
+              <path d="M5 16a1 1 0 0 1 1 1v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 1 1 2 0v2a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-2a1 1 0 0 1 1-1z"/>
+            </svg>
+            <svg id="libOfflineRing" class="pl-offline-ring hidden" viewBox="0 0 36 36" width="34" height="34" aria-hidden="true">
+              <circle class="pl-offline-ring-bg" cx="18" cy="18" r="15.5" fill="none" stroke-width="2.5"/>
+              <circle id="libOfflineRingFg" class="pl-offline-ring-fg" cx="18" cy="18" r="15.5" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+            </svg>
+            <span id="libOfflineProgress" class="pl-offline-progress hidden">0%</span>
+            <svg id="libOfflineIcoDone" class="pl-offline-done hidden" viewBox="0 0 36 36" width="30" height="30" fill="none" stroke="currentColor" aria-hidden="true">
+              <circle id="libOfflineFidCircle" class="fid-circle" cx="18" cy="18" r="15.5" stroke-width="2.5"/>
+              <path id="libOfflineFidCheck" class="fid-check" d="M7.5 19.5L13.5 25.5L28.5 10.5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        <div class="lib-search-wrap" id="libSearchWrap">
+            <label class="lib-search" for="libSearch">
+              <svg class="lib-search-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M11.5 10.4l3.1 3.1a.75.75 0 11-1.06 1.06l-3.1-3.1a6 6 0 111.06-1.06zM7 11.5A4.5 4.5 0 107 2.5a4.5 4.5 0 000 9z"/>
+              </svg>
+              <input
+                id="libSearch"
+                type="search"
+                enterkeyhint="search"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="Cerca nei salvati"
+              />
+              <button type="button" id="libSearchClear" class="lib-search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+            </label>
+          </div>
+        </div>
+        <div class="lib-status-row">
+          <span id="libLoadingSpinner" class="lib-loading-spinner hidden" aria-hidden="true"></span>
+          <p id="libStatus" class="status">I tuoi pezzi in crackify/</p>
+        </div>
+
+        <div id="libTracksHead" class="track-head hidden" aria-hidden="true">
+          <span>#</span><span></span><span>TITOLO</span><span>ARTISTA</span><span>DURATA</span><span></span>
+        </div>
+        <ul id="libList" class="track-list"></ul>
+      </section>
+
+      <!-- ARTIST VIEW: pagina minimale (cover + nome + top track), niente
+           offline/adotta — hanno senso per playlist/chart, non per un
+           artista. L'anti-ban invece sì (stesso "play pigro"/preview 30s
+           delle top track). Vedi openArtist in app.js. -->
+      <section id="viewArtist" class="view hidden">
+        <!-- stessa fascia a tiro dei preferiti e delle playlist -->
+        <header class="top crk-top-rivela">
+          <div class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="artistSearchEntry"
+              type="search"
+              placeholder="Cerca artisti, playlist o album"
+              autocomplete="off"
+            />
+            <button type="button" id="artistTrackSearchBtn" class="track-search-btn" title="Cerca un brano da scaricare">Brani</button>
+          </div>
+        </header>
+
+        <section class="pl-hero">
+          <button type="button" id="btnArtistBack" class="pl-hero-back" title="Indietro" aria-label="Indietro">←</button>
+          <div class="pl-hero-cover" id="artistHeroCover">🎤</div>
+          <div class="pl-hero-info">
+            <span class="pl-hero-kicker" id="artistKicker">Artista</span>
+            <h1 id="artistHeroTitle">—</h1>
+          </div>
+          <!-- il catalogo profondo arriva dopo l'apertura, un album alla
+               volta: vedi startArtistCatalogFill in app.js. Dal 04/10 sta in
+               alto a destra nell'intestazione e alla fine si dissolve -->
+          <div id="artistFill" class="artist-fill hidden">
+            <div class="artist-fill-track"><span id="artistFillBar"></span></div>
+            <p id="artistFillLabel" class="artist-fill-label"></p>
+          </div>
+        </section>
+        <div class="pl-action-row">
+          <!-- play, shuffle e lente come nelle playlist: SOLO desktop, sul
+               telefono restano spenti (vedi #btnArtistPlay in style.css) -->
+          <button type="button" id="btnArtistPlay" class="lib-play-btn" title="Riproduci">
+            <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+            </svg>
+            <span class="pl-play-label">Riproduci</span>
+          </button>
+          <button type="button" id="btnArtistShuffle" class="pl-offline-btn pl-shuffle-btn" title="Shuffle: off" aria-label="Riproduzione casuale" aria-pressed="false">
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+              <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+            </svg>
+          </button>
+          <button type="button" id="btnArtistFollow" class="pl-offline-btn heart-fillable" title="Segui artista" aria-label="Segui artista">
+            <svg class="heart-anim" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <defs><clipPath id="hcArtistFollow"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></clipPath></defs>
+              <path class="heart-shell" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
+              <path class="heart-outline" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+              <g clip-path="url(#hcArtistFollow)">
+                <g class="heart-liquid">
+                  <g class="heart-waves">
+                    <path class="hw hw-a" d="M-24 4 Q-21 1 -18 4 T-12 4 T-6 4 T0 4 T6 4 T12 4 T18 4 T24 4 T30 4 T36 4 V28 H-24Z"/>
+                    <path class="hw hw-b" d="M-24 5 Q-21 7.5 -18 5 T-12 5 T-6 5 T0 5 T6 5 T12 5 T18 5 T24 5 T30 5 T36 5 V28 H-24Z"/>
+                  </g>
+                </g>
+              </g>
+            </svg>
+          </button>
+          <div class="pl-track-search-wrap" id="artistTrackSearchWrap">
+            <label class="lib-search" for="artistTrackSearch">
+              <svg class="lib-search-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M11.5 10.4l3.1 3.1a.75.75 0 11-1.06 1.06l-3.1-3.1a6 6 0 111.06-1.06zM7 11.5A4.5 4.5 0 107 2.5a4.5 4.5 0 000 9z"/>
+              </svg>
+              <input
+                id="artistTrackSearch"
+                type="search"
+                enterkeyhint="search"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="Cerca tra i brani"
+              />
+              <button type="button" id="artistTrackSearchClear" class="lib-search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+            </label>
+          </div>
+          <!-- il margin-left:auto ce l'ha già .pl-antiban-group; da desktop lo
+               toglie style.css perché a destra ci va la lente per prima -->
+          <div id="artistAntiBanGroup" class="pl-antiban-group">
+            <button type="button" id="artistAntiBan" class="pl-antiban-toggle" title="Attiva/disattiva anti-ban" aria-label="Attiva/disattiva anti-ban">
+              <span class="pl-antiban-lever">
+                <span class="pl-antiban-handle">
+                  <span class="pl-antiban-bar"></span>
+                  <span class="pl-antiban-knob"></span>
+                </span>
+                <span class="pl-antiban-spark"></span>
+                <span class="pl-antiban-spark"></span>
+                <span class="pl-antiban-spark"></span>
+              </span>
+              <span class="pl-antiban-label-wrap">
+                <span class="pl-antiban-rain">
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                </span>
+                <span class="pl-antiban-label" data-text="ANTI-BAN">ANTI-BAN</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <section class="results-head queue-head">
+          <p id="artistStatus" class="status">Le più ascoltate</p>
+        </section>
+        <!-- intestazione di colonna come nelle playlist, solo desktop -->
+        <div id="artistTracksHead" class="track-head hidden" aria-hidden="true">
+          <span>#</span><span></span><span>TITOLO</span><span>ARTISTA</span><span>DURATA</span><span></span>
+        </div>
+        <ul id="artistTracks" class="track-list"></ul>
+        <button type="button" id="artistShowAllBtn" class="page-btn hidden" style="margin:4px auto 24px;display:block;">Mostra tutti</button>
+        <section id="artistAlbumsSection" class="hidden">
+          <section class="results-head queue-head">
+            <p class="status">Discografia</p>
+          </section>
+          <div id="artistAlbumsGrid" class="pl-grid"></div>
+        </section>
+      </section>
+
+      <!-- QUEUE VIEW -->
+      <section id="viewQueue" class="view hidden">
+        <section class="results-head queue-head">
+          <div>
+            <h1>In coda</h1>
+            <p id="queueStatus" class="status">Niente in coda — premi + su un brano</p>
+          </div>
+          <button type="button" id="btnClearQueue" class="page-btn">Svuota</button>
+        </section>
+        <div class="queue-now-label" id="queueNowLabel"></div>
+        <ul id="queueList" class="track-list"></ul>
+      </section>
+
+      <!-- PLAYLISTS VIEW -->
+      <section id="viewPlaylists" class="view hidden">
+        <!-- stessa fascia di Home e Cerca (il guscio Mac ci sposta dentro
+             chevron e icone, vedi shell.js). La barra qui è una porta
+             d'ingresso alla ricerca, come nella Home: il filtro della
+             libreria resta il suo, più sotto. -->
+        <header class="top">
+          <div class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="libSearchEntry"
+              type="search"
+              placeholder="Cerca artisti, playlist o album"
+              autocomplete="off"
+            />
+            <button type="button" id="libTrackSearchBtn" class="track-search-btn" title="Cerca un brano da scaricare">Brani</button>
+          </div>
+          <!-- modalità offline (07/10, Vitto): senza rete non si cerca né su
+               Deezer né su Telegram, quindi al posto della barra c'è il
+               «cabinato» (08/10, scelto fra 4 stili), dal 08/10 notte un
+               unico banner animato: il gioco del dinosauro è tutto lo
+               schermo e la scritta OFFLINE MODE a pixel gli sta in cima, nel
+               cielo, sopra il canvas e trasparente ai tocchi. La scritta la
+               disegna cartelloOffline() col carattere del gioco (DINO_FONT),
+               il gioco è DINO in app.js; tutte le altre scritte sono nel
+               canvas. Visibile solo con html.offline-mode. -->
+          <div id="offlineCabinato" class="offline-cabinato">
+            <div id="offlineCartello" class="offline-cartello" role="status" aria-label="Offline mode"></div>
+            <div id="dinoCampo" class="dino-campo" role="button" tabindex="0" aria-label="Gioco offline: tocca per saltare">
+              <canvas id="dinoCanvas" aria-hidden="true"></canvas>
+            </div>
+            <!-- un «cattivo» del gioco (08/10, Vitto: «usa proprio la finestra
+                 di errore di Windows XP»): la classica «Errore di
+                 applicazione» dell'XP italiano, con «read» rimasto in
+                 inglese. Dal 08/10 la apre l'icona dell'errore se la tocchi,
+                 e chiudendola ne spunta un'altra: questa è il modello, le
+                 copie e dove stanno li decide app.js (collegaDino, dinoDom).
+                 Trasparente ai tocchi, tranne × e OK. -->
+            <!-- i due tasti a pixel (rifatti il 08/10, Vitto: «reworkiamo il
+                 pulsante di full screen e mettiamo un altro pulsante di
+                 impostazioni»): tasti da cabinato col bordo a gradini.
+                 A sinistra lo schermo intero (che a schermo intero diventa
+                 «riduci» ed esce), nascosto se l'app non sa girarsi
+                 (pluginOrientamento); a destra le impostazioni (#dinoMenu).
+                 Spariscono mentre corri (dinoDom) -->
+            <button type="button" id="dinoGrandeBtn" class="dino-tasto dino-grande-btn hidden" aria-label="Schermo intero">
+              <span class="dino-tasto-cap">
+                <svg class="dino-ico-grande" viewBox="0 0 11 11" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M0 0h4v1H0zM7 0h4v1H7zM0 1h2v1H0zM9 1h2v1H9zM0 2h1v1H0zM2 2h1v1H2zM8 2h1v1H8zM10 2h1v1H10zM0 3h1v1H0zM3 3h1v1H3zM7 3h1v1H7zM10 3h1v1H10zM0 7h1v1H0zM3 7h1v1H3zM7 7h1v1H7zM10 7h1v1H10zM0 8h1v1H0zM2 8h1v1H2zM8 8h1v1H8zM10 8h1v1H10zM0 9h2v1H0zM9 9h2v1H9zM0 10h4v1H0zM7 10h4v1H7z"/></svg>
+                <svg class="dino-ico-riduci" viewBox="0 0 11 11" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M0 0h1v1H0zM3 0h1v1H3zM7 0h1v1H7zM10 0h1v1H10zM1 1h1v1H1zM3 1h1v1H3zM7 1h1v1H7zM9 1h1v1H9zM2 2h2v1H2zM7 2h2v1H7zM0 3h4v1H0zM7 3h4v1H7zM0 7h4v1H0zM7 7h4v1H7zM2 8h2v1H2zM7 8h2v1H7zM1 9h1v1H1zM3 9h1v1H3zM7 9h1v1H7zM9 9h1v1H9zM0 10h1v1H0zM3 10h1v1H3zM7 10h1v1H7zM10 10h1v1H10z"/></svg>
+              </span>
+            </button>
+            <button type="button" id="dinoMenuBtn" class="dino-tasto dino-menu-btn" aria-label="Impostazioni del gioco" aria-haspopup="dialog">
+              <span class="dino-tasto-cap">
+                <svg viewBox="0 0 11 11" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M4 0h3v1H4zM1 1h2v1H1zM4 1h3v1H4zM8 1h2v1H8zM1 2h9v1H1zM2 3h2v1H2zM7 3h2v1H7zM0 4h3v1H0zM8 4h3v1H8zM0 5h3v1H0zM8 5h3v1H8zM0 6h3v1H0zM8 6h3v1H8zM2 7h2v1H2zM7 7h2v1H7zM1 8h9v1H1zM1 9h2v1H1zM4 9h3v1H4zM8 9h2v1H8zM4 10h3v1H4z"/></svg>
+              </span>
+            </button>
+            <div id="dinoErrore" class="dino-errori" aria-hidden="true">
+              <div class="dino-errore">
+                <div class="dino-errore-titolo"><span>dino.exe - Errore di applicazione</span><b class="dino-errore-chiudi"><i class="dino-errore-x"></i></b></div>
+                <div class="dino-errore-corpo">
+                  <i class="dino-errore-icona"></i>
+                  <p>L'istruzione a "0x0d1n0000" ha fatto riferimento alla memoria a "0x00000000". La memoria non poteva essere "read".</p>
+                </div>
+                <div class="dino-errore-tasti"><b>OK</b></div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section id="plGridHead" class="results-head queue-head pl-lib-head">
+          <!-- intestazione a tre righe come nel prototipo (occhiello,
+               titolo, sottotitolo): occhiello e sottotitolo esistono solo
+               da desktop, sul telefono la testata resta quella di prima -->
+          <span class="lib-eyebrow">La tua musica</span>
+          <div class="pl-lib-head-top">
+            <h1 id="plTitle" class="pl-lib-title-brand">La tua libreria</h1>
+            <button type="button" id="btnPlCreate" class="pl-lib-icon-btn accent" title="Nuova playlist" aria-label="Nuova playlist">
+              <!-- "+" a tratto invece che a sagoma piena: lo spessore si
+                   regola con stroke-width (era 2 di sagoma, ora 2,7) -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                   stroke-width="2.7" stroke-linecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+          </div>
+          <p class="lib-sub">Tutta la merda che ti piace</p>
+          <div class="lib-status-row">
+            <span id="plLoadingSpinner" class="lib-loading-spinner hidden" aria-hidden="true"></span>
+            <p id="plStatus" class="status">Crea e organizza i tuoi pezzi</p>
+          </div>
+          <!-- filtri della griglia, solo desktop: stessa taglia dei chip
+               di Cerca (vedi style.css, "La tua libreria a griglia") -->
+          <div id="libChips" class="lib-chips" role="group" aria-label="Filtra la libreria">
+            <button type="button" class="page-btn active" data-tipo="tutto">Tutto</button>
+            <button type="button" class="page-btn" data-tipo="playlist">Playlist</button>
+            <button type="button" class="page-btn" data-tipo="artisti">Artisti</button>
+          </div>
+        </section>
+
+        <div id="plLibSearchWrap" class="pl-lib-search-wrap">
+          <label class="lib-search" for="plLibSearch">
+            <svg class="lib-search-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M11.5 10.4l3.1 3.1a.75.75 0 11-1.06 1.06l-3.1-3.1a6 6 0 111.06-1.06zM7 11.5A4.5 4.5 0 107 2.5a4.5 4.5 0 000 9z"/>
+            </svg>
+            <!-- lente a tratto, gemella del "+" qui sopra: la usa solo il
+                 desktop, dove questa barra diventa un tasto accanto al "+"
+                 (vedi style.css). Sul telefono resta l'icona di sempre -->
+            <svg class="pl-lib-lente-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.2"/>
+              <path d="M15.2 15.2L19.5 19.5"/>
+            </svg>
+            <input
+              id="plLibSearch"
+              type="search"
+              enterkeyhint="search"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="Cerca nella tua libreria"
+            />
+            <button type="button" id="plLibSearchClear" class="lib-search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+          </label>
+        </div>
+
+        <!-- pannello dedicato quando apri una playlist (stile Spotify) -->
+        <!-- campo da tirare giù sul telefono in tutte le pagine playlist
+             (05/10): vedi collegaRicercaDaTirare in app.js -->
+        <div id="plTiro" class="lib-tiro">
+          <div class="lib-tiro-fondo"></div>
+          <div class="lib-tiro-campo"></div>
+        </div>
+        <section id="plHero" class="pl-hero hidden">
+          <button type="button" id="btnPlBack" class="pl-hero-back" title="Tutte" aria-label="Tutte">←</button>
+          <div class="pl-hero-cover" id="plHeroCover">▤</div>
+          <div class="pl-hero-info">
+            <span class="pl-hero-kicker">Playlist</span>
+            <h1 id="plHeroTitle">—</h1>
+            <div id="plHeroMeta" class="pl-hero-meta">
+              <span id="plHeroAvatar" class="pl-hero-avatar" aria-hidden="true">⚡</span>
+              <span id="plHeroMetaText" class="pl-hero-meta-text">—</span>
+            </div>
+          </div>
+        </section>
+        <div id="plActionRow" class="pl-action-row hidden">
+          <button type="button" id="btnPlPlay" class="lib-play-btn hidden" title="Play">
+            <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+            </svg>
+            <span class="pl-play-label">Riproduci</span>
+          </button>
+          <button type="button" id="btnPlShuffle" class="pl-offline-btn pl-shuffle-btn hidden" title="Shuffle: off" aria-label="Riproduzione casuale" aria-pressed="false">
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+              <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+            </svg>
+          </button>
+          <button type="button" id="btnPlOffline" class="pl-offline-btn hidden" title="Scarica per l'ascolto offline" aria-label="Scarica per l'ascolto offline">
+            <!-- idle: icona download piena -->
+            <svg id="plOfflineIcoDownload" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M13 3a1 1 0 1 0-2 0v9.586l-3.293-3.293a1 1 0 1 0-1.414 1.414l5 5a1 1 0 0 0 1.414 0l5-5a1 1 0 0 0-1.414-1.414L13 12.586V3z"/>
+              <path d="M5 16a1 1 0 0 1 1 1v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 1 1 2 0v2a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-2a1 1 0 0 1 1-1z"/>
+            </svg>
+            <!-- downloading: anello di progresso + percentuale -->
+            <svg id="plOfflineRing" class="pl-offline-ring hidden" viewBox="0 0 36 36" width="34" height="34" aria-hidden="true">
+              <circle class="pl-offline-ring-bg" cx="18" cy="18" r="15.5" fill="none" stroke-width="2.5"/>
+              <circle id="plOfflineRingFg" class="pl-offline-ring-fg" cx="18" cy="18" r="15.5" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+            </svg>
+            <span id="plOfflineProgress" class="pl-offline-progress hidden">0%</span>
+            <!-- done: stile sblocco Face ID, cerchio + spunta che si disegnano -->
+            <svg id="plOfflineIcoDone" class="pl-offline-done hidden" viewBox="0 0 36 36" width="30" height="30" fill="none" stroke="currentColor" aria-hidden="true">
+              <circle id="plOfflineFidCircle" class="fid-circle" cx="18" cy="18" r="15.5" stroke-width="2.5"/>
+              <path id="plOfflineFidCheck" class="fid-check" d="M7.5 19.5L13.5 25.5L28.5 10.5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button type="button" id="btnPlAdopt" class="pl-offline-btn heart-fillable hidden" title="Aggiungi alla mia libreria" aria-label="Aggiungi alla mia libreria">
+            <svg class="heart-anim" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <defs><clipPath id="hcPlAdopt"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></clipPath></defs>
+              <path class="heart-shell" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
+              <path class="heart-outline" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+              <g clip-path="url(#hcPlAdopt)">
+                <g class="heart-liquid">
+                  <g class="heart-waves">
+                    <path class="hw hw-a" d="M-24 4 Q-21 1 -18 4 T-12 4 T-6 4 T0 4 T6 4 T12 4 T18 4 T24 4 T30 4 T36 4 V28 H-24Z"/>
+                    <path class="hw hw-b" d="M-24 5 Q-21 7.5 -18 5 T-12 5 T-6 5 T0 5 T6 5 T12 5 T18 5 T24 5 T30 5 T36 5 V28 H-24Z"/>
+                  </g>
+                </g>
+              </g>
+            </svg>
+          </button>
+          <div id="plAntiBanGroup" class="pl-antiban-group hidden">
+            <button type="button" id="plAntiBan" class="pl-antiban-toggle" title="Attiva/disattiva anti-ban" aria-label="Attiva/disattiva anti-ban">
+              <span class="pl-antiban-lever">
+                <span class="pl-antiban-handle">
+                  <span class="pl-antiban-bar"></span>
+                  <span class="pl-antiban-knob"></span>
+                </span>
+                <span class="pl-antiban-spark"></span>
+                <span class="pl-antiban-spark"></span>
+                <span class="pl-antiban-spark"></span>
+              </span>
+              <span class="pl-antiban-label-wrap">
+                <span class="pl-antiban-rain">
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                  <span class="pl-antiban-rain-col"></span>
+                </span>
+                <span class="pl-antiban-label" data-text="ANTI-BAN">ANTI-BAN</span>
+              </span>
+            </button>
+          </div>
+          <div class="pl-track-search-wrap" id="plTrackSearchWrap">
+              <label class="lib-search" for="plTrackSearch">
+                <svg class="lib-search-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path fill="currentColor" d="M11.5 10.4l3.1 3.1a.75.75 0 11-1.06 1.06l-3.1-3.1a6 6 0 111.06-1.06zM7 11.5A4.5 4.5 0 107 2.5a4.5 4.5 0 000 9z"/>
+                </svg>
+                <input
+                  id="plTrackSearch"
+                  type="search"
+                  enterkeyhint="search"
+                  autocomplete="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  placeholder="Cerca nella playlist"
+                />
+                <button type="button" id="plTrackSearchClear" class="lib-search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+              </label>
+            </div>
+        </div>
+
+
+        <div id="plList" class="pl-row-list"></div>
+        <!-- intestazione di colonna come nel prototipo: la accende e la
+             spegne un osservatore su #plTracks (lo riempiono quattro
+             funzioni diverse, vedi app.js) -->
+        <div id="plTracksHead" class="track-head hidden" aria-hidden="true">
+          <span>#</span><span></span><span>TITOLO</span><span>ARTISTA</span><span>DURATA</span><span></span>
+        </div>
+        <ul id="plTracks" class="track-list hidden"></ul>
+      </section>
+    </main>
+
+    <!-- modal scegli playlist -->
+    <!-- #plModal spostato FUORI da .app (vedi vicino a </body>): .app crea
+         uno stacking context (position+z-index) che intrappolava lo z-index
+         del modal sotto al player a tutto schermo — Vitto 2026-08-07. -->
+
+    <!-- Ricerca brani (Telegram): era una vista a sé, la tab "Cerca", con la
+         sua barra separata da quella della Home. Due ricerche diverse dietro
+         due barre diverse confondevano e basta, quindi ora è una finestra
+         sopra tutto, aperta dal bottone dentro l'unica barra di ricerca
+         (Vitto 2026-09-18). Il markup è lo stesso di prima, id compresi:
+         form, righe, tasti pagina e scorciatoie da tastiera di app.js
+         continuano a funzionare senza riscritture. -->
+    <div id="trackSearchModal" class="modal hidden">
+      <div class="modal-card track-search-card">
+        <div class="track-search-head">
+          <h2>Cerca brani</h2>
+          <button type="button" id="trackSearchClose" class="track-search-close" title="Chiudi" aria-label="Chiudi">✕</button>
+        </div>
+        <div class="track-search-form">
+          <form id="searchForm" class="search-bar">
+            <span class="search-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+              </svg>
+            </span>
+            <input
+              id="query"
+              type="search"
+              enterkeyhint="search"
+              placeholder="Cosa stracazzo vuoi ascoltare?"
+              autocomplete="off"
+              autofocus
+            />
+            <button type="button" id="searchClear" class="search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+            <button type="submit" id="searchBtn">Cerca</button>
+          </form>
+          <div id="searchHistory" class="search-history hidden"></div>
+        </div>
+        <div class="track-search-body">
+          <section id="resultsHead" class="results-head hidden">
+            <h1 id="resultsTitle">Inizia una ricerca</h1>
+            <p id="status" class="status">Scrivi un brano o un artista</p>
+          </section>
+
+          <!-- sparisce da solo quando #resultsHead perde .hidden, cioè al
+               primo invio: nessun JS, solo il selettore ~ nel CSS -->
+          <div class="track-search-empty">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.6-3.6"></path>
+            </svg>
+            <p>Cerca un brano da scaricare</p>
+            <span>Lo peschiamo dai bot Telegram e finisce nella tua libreria</span>
+          </div>
+
+          <div id="skeleton" class="skeleton hidden"></div>
+          <ul id="trackList" class="track-list"></ul>
+        </div>
+
+        <!-- fuori dal corpo che scorre: Prec./Succ. restano sempre sotto gli
+             occhi anche con la lista lunga -->
+        <div id="pager" class="pager hidden">
+          <button type="button" id="prevPage" class="page-btn">← Prec.</button>
+          <span id="pageLabel" class="page-label">Pagina 1</span>
+          <button type="button" id="nextPage" class="page-btn">Succ. →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- tutti i brani dell'artista/album: finestra sopra la card, tap fuori
+         per uscire (vedi btnArtistShowAll in app.js) -->
+    <div id="artistTracksModal" class="modal hidden">
+      <div class="modal-card artist-tracks-card">
+        <h2 id="artistTracksModalTitle">Tutti i brani</h2>
+        <div class="pl-track-search-wrap">
+          <label class="lib-search" for="artistTracksModalSearch">
+            <svg class="lib-search-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M11.5 10.4l3.1 3.1a.75.75 0 11-1.06 1.06l-3.1-3.1a6 6 0 111.06-1.06zM7 11.5A4.5 4.5 0 107 2.5a4.5 4.5 0 000 9z"/>
+            </svg>
+            <input
+              id="artistTracksModalSearch"
+              type="search"
+              enterkeyhint="search"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="Cerca nei brani"
+            />
+            <button type="button" id="artistTracksModalClear" class="lib-search-clear hidden" title="Pulisci" aria-label="Pulisci">✕</button>
+          </label>
+        </div>
+        <ul id="artistTracksModalList" class="track-list"></ul>
+      </div>
+    </div>
+
+    <!-- tutte le classifiche: stesso pattern di artistTracksModal ma con
+         griglia di card (vedi buildChartCard) invece di una tracklist -->
+    <div id="chartsModal" class="modal hidden">
+      <div class="modal-card charts-modal-card">
+        <h2 class="home-section-title-brand">Classifiche</h2>
+        <div id="chartsModalGrid" class="pl-grid"></div>
+      </div>
+    </div>
+
+    <!-- nuova playlist (nome) -->
+    <div id="newPlaylistModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="newPlaylistModalTitle">Nuova playlist</h2>
+        <input id="newPlaylistName" type="text" class="new-pl-input" placeholder="Nome playlist" maxlength="80" autocomplete="off" />
+        <div class="new-pl-actions">
+          <button type="button" id="newPlaylistCancel" class="page-btn">Annulla</button>
+          <button type="button" id="newPlaylistConfirm" class="page-btn accent">Crea</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- conversione link YouTube → mp3 -->
+    <div id="ytModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ytModalTitle">
+      <div class="modal-card yt-modal-card">
+        <h2 id="ytModalTitle">Converti da YouTube</h2>
+        <div class="yt-preview">
+          <div id="ytThumb" class="yt-thumb"></div>
+          <div class="yt-meta">
+            <div id="ytMetaTitle" class="yt-meta-title">—</div>
+            <div id="ytMetaSub" class="yt-meta-sub"></div>
+          </div>
+        </div>
+        <label class="login-label" for="ytFilename">Nome file</label>
+        <input id="ytFilename" type="text" class="new-pl-input" maxlength="200" autocomplete="off" placeholder="Nome brano" />
+        <div id="ytProgressWrap" class="yt-progress-wrap hidden">
+          <div class="yt-progress-track">
+            <div id="ytProgressBar" class="yt-progress-bar"></div>
+          </div>
+        </div>
+        <p id="ytStatus" class="status"></p>
+        <div class="new-pl-actions">
+          <button type="button" id="ytCancel" class="page-btn">Annulla</button>
+          <button type="button" id="ytConvertBtn" class="page-btn accent">Converti</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.app -->
+
+  <!-- Login FUORI da .app (blur gate non lo copre). Visibile se html.need-login o via JS -->
+  <div id="loginModal" class="modal login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="modal-card login-card">
+      <div class="login-brand" aria-hidden="true">
+        <img src="/icons/icon-192.png?v=2" alt="" />
+        <span class="login-word">crackify<span class="login-dot">.</span></span>
+      </div>
+      <h2 id="loginTitle">Accedi a Crackify</h2>
+      <p class="status">La solita roba, le solite orecchie.</p>
+      <label class="login-label" for="loginUser">Username</label>
+      <!-- autocapitalize/autocorrect: senza, iOS e Safari mettono la maiuscola
+           alla prima lettera e l'accesso fallisce ("Vitto" invece di "vitto").
+           Stessa protezione che serverBindInput aveva gia'. -->
+      <input id="loginUser" class="login-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="username" />
+      <label class="login-label" for="loginPass">Password</label>
+      <input id="loginPass" class="login-input" type="password" autocomplete="current-password" placeholder="••••••••" />
+      <p id="loginErr" class="login-err" hidden></p>
+      <div class="login-actions">
+        <button type="button" id="loginSubmit" class="page-btn accent login-submit-full">Accedi</button>
+        <button type="button" id="loginClose" class="page-btn hidden">Chiudi</button>
+      </div>
+      <button type="button" id="loginChangeServer" class="login-server-link hidden">Cambia indirizzo server</button>
+    </div>
+  </div>
+
+  <!-- App nativa (Capacitor): indirizzo del Mac da raggiungere -->
+  <div id="serverBindModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="serverBindTitle">
+    <div class="modal-card login-card">
+      <span class="login-brand" aria-hidden="true">
+        <img src="/icons/icon-192.png?v=2" alt="" />
+      </span>
+      <h2 id="serverBindTitle">Connetti al tuo Mac</h2>
+      <p class="status">Indirizzo del server Crackify (IP/hostname + porta)</p>
+      <label class="login-label" for="serverBindInput">Indirizzo</label>
+      <input id="serverBindInput" class="login-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://192.168.1.59:8787" />
+      <p id="serverBindErr" class="login-err" hidden></p>
+      <div class="login-actions">
+        <button type="button" id="serverBindSave" class="page-btn accent login-submit-full">Connetti</button>
+        <button type="button" id="serverBindCancel" class="page-btn hidden">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Impostazioni / Account (tap su banner utente) -->
+  <div id="accountModal" class="modal settings-modal hidden" role="dialog" aria-labelledby="accountTitle" aria-modal="true">
+    <div class="modal-card settings-card">
+      <header class="settings-head">
+        <div class="settings-user">
+          <span id="settingsAvatar" class="settings-avatar" aria-hidden="true"></span>
+          <div class="settings-user-meta">
+            <strong id="settingsUserName">Account</strong>
+            <span id="accountDetail" class="settings-user-sub">—</span>
+          </div>
+        </div>
+        <button type="button" id="accountClose" class="settings-close" title="Chiudi" aria-label="Chiudi">✕</button>
+      </header>
+
+      <!-- Home menu -->
+      <div id="settingsHome" class="settings-panel">
+        <p id="accountTitle" class="settings-hint">Impostazioni</p>
+        <button type="button" class="settings-row" data-settings-go="account">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Account</strong>
+            <span>Profilo e sessione</span>
+          </span>
+          <span class="settings-row-chevron">›</span>
+        </button>
+        <button type="button" class="settings-row" data-settings-go="devices">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Dispositivi</strong>
+            <span>Sessioni collegate</span>
+          </span>
+          <span class="settings-row-chevron">›</span>
+        </button>
+        <button type="button" class="settings-row" id="btnForceUpdate">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 18 16"/><path d="M20 5v6h-6"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Aggiorna app</strong>
+            <span>Scarica l'ultima versione</span>
+          </span>
+        </button>
+        <button type="button" class="settings-row" data-settings-go="sleeptimer" id="btnSleepTimerRow">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Timer di spegnimento</strong>
+            <span id="sleepTimerRowSub">Off</span>
+          </span>
+          <span class="settings-row-chevron">›</span>
+        </button>
+        <!-- Offline mode (05/10): riga come le altre, sotto il timer. Esiste
+             solo nell'app (serve il Filesystem nativo): la accende
+             aggiornaCardOffline in app.js -->
+        <button type="button" class="settings-row hidden" id="settingsOfflineCard" data-settings-go="offline">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="crkGloboRiga"><rect width="24" height="24" fill="#fff"/><circle cx="18" cy="18" r="6.6" fill="#000"/></mask><mask id="crkGloboXRiga"><circle cx="18" cy="18" r="5" fill="#fff"/><path d="m16.1 16.1 3.8 3.8m0-3.8-3.8 3.8" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></mask></defs><g mask="url(#crkGloboRiga)"><circle cx="11" cy="11" r="8.6"/><ellipse cx="11" cy="11" rx="3.7" ry="8.6"/><path d="M2.9 8h16.2M2.9 14h16.2"/></g><circle cx="18" cy="18" r="5" fill="currentColor" stroke="none" mask="url(#crkGloboXRiga)"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Offline mode</strong>
+            <span id="settingsOfflineSub">Gestisci i brani scaricati</span>
+          </span>
+          <span class="settings-row-chevron">›</span>
+        </button>
+        <button type="button" class="settings-row settings-row-danger" id="btnLogout">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Esci</strong>
+            <span>Disconnetti questo dispositivo</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Account detail -->
+      <div id="settingsAccount" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-back>‹ Impostazioni</button>
+        <h3 class="settings-panel-title">Account</h3>
+
+        <div class="profile-card">
+          <div class="profile-avatar-wrap">
+            <button type="button" id="profileAvatarBtn" class="profile-avatar-btn" title="Cambia foto profilo">
+              <span id="profileAvatarPreview" class="profile-avatar-preview" aria-hidden="true"></span>
+              <span class="profile-avatar-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+              </span>
+            </button>
+            <input type="file" id="profileAvatarInput" accept="image/png,image/jpeg,image/webp" class="hidden" />
+            <button type="button" id="profileAvatarRemove" class="profile-avatar-remove hidden">Rimuovi foto</button>
+          </div>
+
+          <div class="profile-card-fields">
+            <label class="profile-field-label" for="profileNicknameInput">Nickname</label>
+            <div class="profile-nickname-row">
+              <input type="text" id="profileNicknameInput" class="login-input profile-nickname-input" maxlength="60" placeholder="Nickname" />
+              <button type="button" id="profileNicknameSave" class="page-btn accent settings-mini-btn">Salva</button>
+            </div>
+            <p id="profileSaveHint" class="profile-save-hint hidden"></p>
+          </div>
+        </div>
+
+        <div class="settings-info-card">
+          <div class="settings-info-row"><span>Username</span><strong id="settingsInfoUser">—</strong></div>
+          <div class="settings-info-row"><span>Ruolo</span><strong id="settingsInfoRole">—</strong></div>
+        </div>
+      </div>
+
+      <!-- Offline mode (05/10): vedi aggiornaPannelloOffline in app.js -->
+      <div id="settingsOffline" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-back>‹ Impostazioni</button>
+        <h3 class="settings-panel-title">Offline mode</h3>
+        <p class="settings-hint" id="offlineStato">Le playlist scaricate si ascoltano anche senza rete</p>
+
+        <label class="settings-row offline-resta" for="offlineResta">
+          <span class="settings-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="crkGloboResta"><rect width="24" height="24" fill="#fff"/><circle cx="18" cy="18" r="6.6" fill="#000"/></mask><mask id="crkGloboXResta"><circle cx="18" cy="18" r="5" fill="#fff"/><path d="m16.1 16.1 3.8 3.8m0-3.8-3.8 3.8" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></mask></defs><g mask="url(#crkGloboResta)"><circle cx="11" cy="11" r="8.6"/><ellipse cx="11" cy="11" rx="3.7" ry="8.6"/><path d="M2.9 8h16.2M2.9 14h16.2"/></g><circle cx="18" cy="18" r="5" fill="currentColor" stroke="none" mask="url(#crkGloboXResta)"/></svg></span>
+          <span class="settings-row-text">
+            <strong>Resta offline</strong>
+            <span>Solo i brani scaricati, niente rete. Vale anche alla riapertura</span>
+          </span>
+          <input type="checkbox" id="offlineResta" class="crk-switch" role="switch" />
+        </label>
+
+        <label class="settings-row offline-resta" for="offlineVeloce">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Fast download</strong>
+            <span>160 kbps: file a metà peso, fuori casa scarica circa il doppio più veloce</span>
+          </span>
+          <input type="checkbox" id="offlineVeloce" class="crk-switch" role="switch" />
+        </label>
+
+        <!-- Travel mode (05/10): si scarica a tempo d'ascolto, non a playlist -->
+        <button type="button" class="settings-row" id="offlineViaggioRiga" data-settings-go="travel">
+          <span class="settings-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span>
+          <span class="settings-row-text">
+            <strong>Travel mode</strong>
+            <span id="offlineViaggioSub">Scarica in base alla durata del viaggio</span>
+          </span>
+          <span class="settings-row-chevron">›</span>
+        </button>
+
+        <!-- download in corso/in coda/in pausa (06/10): vedi disegnaDownloadOffline -->
+        <p class="settings-hint hidden" id="offlineDlTitolo">Download</p>
+        <ul id="offlineDlLista" class="offline-lista offline-dl-lista"></ul>
+
+        <p class="settings-hint">Playlist scaricate</p>
+        <ul id="offlineLista" class="offline-lista"></ul>
+        <p id="offlineVuoto" class="settings-hint offline-vuoto hidden">Niente di scaricato. Per scaricare una playlist usa il tasto ↓ nella sua pagina.</p>
+
+        <div class="settings-info-card">
+          <div class="settings-info-row"><span>Spazio usato</span><strong id="offlineSpazio">—</strong></div>
+          <div class="settings-info-row"><span>Brani scaricati</span><strong id="offlineBrani">—</strong></div>
+        </div>
+
+        <button type="button" class="settings-row settings-row-danger" id="offlineEliminaTutto">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong id="offlineEliminaTitolo">Elimina tutti i download</strong>
+            <span id="offlineEliminaSub">Libera lo spazio sul telefono</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Travel mode, passo 1: quanto dura il viaggio (stesse rotelle del
+           timer di spegnimento). Vedi viaggio* in app.js -->
+      <div id="settingsTravel" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-go="offline">‹ Offline mode</button>
+        <h3 class="settings-panel-title viaggio-titolo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg> Travel mode</h3>
+        <p class="settings-hint">Quanto dura il viaggio?</p>
+        <div class="sleep-timer-wheels">
+          <div class="sleep-timer-wheel" id="viaggioOreWheel"></div>
+          <div class="sleep-timer-wheel-unit">h</div>
+          <div class="sleep-timer-wheel" id="viaggioMinutiWheel"></div>
+          <div class="sleep-timer-wheel-unit">min</div>
+          <div class="sleep-timer-wheel-band" aria-hidden="true"></div>
+        </div>
+        <p class="viaggio-margine" id="viaggioMargine"></p>
+        <button type="button" id="viaggioAvanti" class="page-btn accent sleep-timer-start-btn">Scegli i brani</button>
+      </div>
+
+      <!-- Travel mode, passo 2: scegli fra i brani salvati finché il
+           contatore in alto non arriva a zero -->
+      <div id="settingsTravelPick" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-go="travel">‹ Durata del viaggio</button>
+        <div class="viaggio-indicatore" id="viaggioIndicatore">
+          <div class="viaggio-ind-testa">
+            <strong id="viaggioMancano">—</strong>
+            <span id="viaggioScelti">0 brani</span>
+          </div>
+          <div class="viaggio-barra"><div class="viaggio-barra-pieno" id="viaggioBarra"></div></div>
+          <span class="viaggio-ind-nota" id="viaggioNota"></span>
+        </div>
+        <p class="settings-hint viaggio-carico hidden" id="viaggioCarico">Carico i brani salvati…</p>
+        <ul id="viaggioLista" class="viaggio-lista"></ul>
+        <div class="viaggio-piede">
+          <button type="button" id="viaggioScarica" class="page-btn accent viaggio-scarica" disabled>Scegli almeno un brano</button>
+          <button type="button" id="viaggioEsci" class="viaggio-esci hidden">Esci pure, il download continua ›</button>
+        </div>
+      </div>
+
+      <!-- Devices -->
+      <div id="settingsDevices" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-back>‹ Impostazioni</button>
+        <div class="settings-panel-head">
+          <h3 class="settings-panel-title">Dispositivi</h3>
+          <button type="button" id="btnDevices" class="page-btn settings-mini-btn">Aggiorna</button>
+        </div>
+        <p class="settings-hint" id="devicesSummary">Sessioni collegate al tuo account</p>
+        <ul id="devicesList" class="devices-list"></ul>
+        <button type="button" id="btnRevokeOthers" class="settings-row settings-row-danger devices-revoke-others hidden">
+          <span class="settings-row-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>
+          </span>
+          <span class="settings-row-text">
+            <strong>Esci da tutti gli altri</strong>
+            <span>Revoca sessioni su altri dispositivi</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Appearance -->
+      <div id="settingsAppearance" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-back>‹ Impostazioni</button>
+        <h3 class="settings-panel-title">Aspetto</h3>
+        <p class="settings-hint">Scegli il look di CRACKIFY</p>
+        <div class="theme-picker" id="themePicker">
+          <button type="button" class="theme-option" data-theme="liquid-glass">
+            <span class="theme-swatch theme-swatch-glass"></span>
+            <span class="theme-option-text">
+              <strong>Liquid Glass</strong>
+              <span>Vetro, blur, alone soft</span>
+            </span>
+            <span class="theme-check" aria-hidden="true">✓</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="classic">
+            <span class="theme-swatch theme-swatch-classic"></span>
+            <span class="theme-option-text">
+              <strong>Classic</strong>
+              <span>Solidi e contrasti netti</span>
+            </span>
+            <span class="theme-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Timer spegnimento ("Spegni musica tra", richiesta di Vitto
+           2026-08-07 — stile timer nativo iOS con due rotelle scorrevoli
+           ore/minuti, come Spotify ma con selezione libera invece di
+           preset fissi). Vedi sleepTimer* in app.js. -->
+      <div id="settingsSleepTimer" class="settings-panel hidden">
+        <button type="button" class="settings-back" data-settings-back>‹ Impostazioni</button>
+        <h3 class="settings-panel-title">Timer di spegnimento</h3>
+
+        <!-- scelta durata: nascosta quando il timer è già attivo -->
+        <div id="sleepTimerPicker" class="sleep-timer-picker">
+          <p class="settings-hint">La musica si ferma da sola dopo il tempo scelto</p>
+          <div class="sleep-timer-wheels">
+            <div class="sleep-timer-wheel" id="sleepTimerHoursWheel"></div>
+            <div class="sleep-timer-wheel-unit">h</div>
+            <div class="sleep-timer-wheel" id="sleepTimerMinutesWheel"></div>
+            <div class="sleep-timer-wheel-unit">min</div>
+            <div class="sleep-timer-wheel-band" aria-hidden="true"></div>
+          </div>
+          <button type="button" id="sleepTimerStart" class="page-btn accent sleep-timer-start-btn">Avvia</button>
+        </div>
+
+        <!-- stato attivo: nascosto finché non parte un timer -->
+        <div id="sleepTimerActive" class="sleep-timer-active hidden">
+          <div class="sleep-timer-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </div>
+          <p class="sleep-timer-remaining" id="sleepTimerRemaining">--:--</p>
+          <p class="settings-hint">La musica si fermerà a questo orario</p>
+          <button type="button" id="sleepTimerCancel" class="page-btn sleep-timer-cancel-btn">Annulla</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ritaglio foto profilo -->
+  <div id="avatarCropModal" class="modal avatar-crop-modal hidden" role="dialog" aria-modal="true" aria-labelledby="avatarCropTitle">
+    <div class="modal-card avatar-crop-card">
+      <header class="avatar-crop-head">
+        <strong id="avatarCropTitle">Regola la foto</strong>
+        <button type="button" id="avatarCropClose" class="settings-close" title="Chiudi" aria-label="Chiudi">✕</button>
+      </header>
+      <div class="avatar-crop-viewport" id="avatarCropViewport">
+        <img id="avatarCropImg" alt="" draggable="false" />
+        <div class="avatar-crop-mask" aria-hidden="true"></div>
+      </div>
+      <div class="avatar-crop-zoom-row">
+        <span class="avatar-crop-zoom-ico" aria-hidden="true">🔍</span>
+        <input type="range" id="avatarCropZoom" min="100" max="300" value="100" step="1" />
+      </div>
+      <div class="avatar-crop-actions">
+        <button type="button" id="avatarCropCancel" class="page-btn">Annulla</button>
+        <button type="button" id="avatarCropConfirm" class="page-btn accent">Conferma</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- FUORI da .app: fixed bottom non viene tagliato da overflow/height dell’app (PWA iOS) -->
+    <div class="bottom-dock">
+    <footer class="player" id="playerBar">
+      <audio id="audio" preload="none"></audio>
+      <!-- voce di JARVIS (Piper) — separato dal brano vero apposta, vedi
+           speakJarvisText in app.js -->
+      <audio id="jarvisSpeechAudio" preload="none"></audio>
+
+      <div class="now">
+        <div class="cover" id="cover">⚡</div>
+        <div class="meta">
+          <div id="nowTitle" class="now-title">Nessun brano</div>
+          <div id="nowArtist" class="now-artist">Scegli un pezzo dalla lista</div>
+        </div>
+        <button type="button" class="ico-btn heart heart-fillable" id="btnLike" title="Salva brano" disabled aria-pressed="false">
+          <!-- markup cuore generato/sostituito da JS all'init se serve; SVG statico -->
+          <svg class="heart-anim" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <defs>
+              <clipPath id="heartClipPlayer">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </clipPath>
+            </defs>
+            <path class="heart-shell" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
+            <path class="heart-outline" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+            <g clip-path="url(#heartClipPlayer)">
+              <g class="heart-liquid">
+                <g class="heart-waves">
+                  <path class="hw hw-a" d="M-24 4 Q-21 1 -18 4 T-12 4 T-6 4 T0 4 T6 4 T12 4 T18 4 T24 4 T30 4 T36 4 V28 H-24Z"/>
+                  <path class="hw hw-b" d="M-24 5 Q-21 7.5 -18 5 T-12 5 T-6 5 T0 5 T6 5 T12 5 T18 5 T24 5 T30 5 T36 5 V28 H-24Z"/>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </button>
+        <button type="button" class="ico-btn pl-add-btn" id="btnAddPl" title="Aggiungi a playlist" disabled>
+          <!-- add to playlist (list + plus) -->
+          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M1 2.75A.75.75 0 0 1 1.75 2h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 1 2.75zm0 5A.75.75 0 0 1 1.75 7h5.5a.75.75 0 0 1 0 1.5h-5.5A.75.75 0 0 1 1 7.75zM1.75 12a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5z"/>
+            <path d="M12 6a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5v-1.5A.75.75 0 0 1 12 6z"/>
+          </svg>
+        </button>
+        <!-- Connect (stile Spotify) — mobile: accanto al play -->
+        <button type="button" class="ico-btn connect-btn" id="btnConnect" title="Connect — dispositivi" aria-label="Connect dispositivi">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="2" width="14" height="20" rx="2.5"/>
+            <circle cx="12" cy="14.2" r="3.6"/>
+            <circle cx="12" cy="14.2" r="0.9" fill="currentColor" stroke="none"/>
+            <line x1="12" y1="6.1" x2="12.01" y2="6.1"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="center">
+        <div class="transport">
+          <button type="button" class="t-btn ghost ico" id="btnShuffle" title="Shuffle" aria-pressed="false">
+            <!-- Spotify-like shuffle -->
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+              <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+            </svg>
+          </button>
+          <button type="button" class="t-btn ghost ico" id="btnPrev" title="Precedente">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v12.575a.7.7 0 0 1-1.05.607L4 9.149V14.3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7a.7.7 0 0 1 .7-.7h1.6z"/>
+            </svg>
+          </button>
+          <button type="button" class="t-btn play" id="btnPlay" title="Play / Pausa" disabled>
+            <svg id="iconPlay" viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+            </svg>
+            <svg id="iconPause" class="hidden" viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>
+            </svg>
+          </button>
+          <button type="button" class="t-btn ghost ico" id="btnNext" title="Successivo">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.107A.7.7 0 0 0 1 1.712v12.575a.7.7 0 0 0 1.05.607L12 6.851V14.3a.7.7 0 0 0 .7.7h1.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-1.6z"/>
+            </svg>
+          </button>
+          <!-- mobile: al posto dello skip (coperto dallo swipe sulla mini bar) -->
+          <button type="button" class="t-btn ghost ico connect-btn connect-btn-mini" id="btnConnectMobile" title="Connect — dispositivi" aria-label="Connect dispositivi">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="5" y="2" width="14" height="20" rx="2.5"/>
+              <circle cx="12" cy="13" r="4.2"/>
+            </svg>
+          </button>
+          <button type="button" class="t-btn ghost ico" id="btnRepeat" title="Ripeti" aria-pressed="false" data-mode="0">
+            <!-- repeat all -->
+            <svg id="iconRepeat" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
+            </svg>
+            <!-- repeat one -->
+            <svg id="iconRepeatOne" class="hidden" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h.75v1.5h-.75A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5zM12.25 1h-.75v1.5h.75a2.25 2.25 0 0 1 2.25 2.25v5a2.25 2.25 0 0 1-2.25 2.25H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439A3.75 3.75 0 0 0 16 8.25v-5A3.75 3.75 0 0 0 12.25 1z"/>
+              <path d="M9.12 8V4H7.97v.87H8.6V8H9.12zM7.5 8.9v.7h2.2v-.7H7.5z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="timeline">
+          <span id="timeCur" class="time">0:00</span>
+          <div class="seek" id="seekWrap">
+            <div class="seek-bg">
+              <div class="seek-buf" id="seekBuf"></div>
+              <div class="seek-fill" id="seekFill"></div>
+            </div>
+            <input type="range" id="seek" min="0" max="1000" value="0" step="1" disabled />
+          </div>
+          <span id="timeDur" class="time">0:00</span>
+        </div>
+      </div>
+
+      <div class="extra">
+        <button type="button" class="t-btn ghost ico vol-ico" id="btnMute" title="Volume" disabled>
+          <svg class="ico-vol-high" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M9.741.85a.75.75 0 0 1 .375.65v13a.75.75 0 0 1-1.125.65l-6.925-4a3.642 3.642 0 0 1-1.33-4.967 3.639 3.639 0 0 1 1.33-1.332l6.925-4a.75.75 0 0 1 .75 0zm-6.924 5.3a2.139 2.139 0 0 0 0 3.7l5.8 3.35V2.8l-5.8 3.35zm8.683 4.29V5.56a2.75 2.75 0 0 1 0 4.88z"/>
+            <path d="M11.5 13.614a5.752 5.752 0 0 0 0-11.228v1.55a4.252 4.252 0 0 1 0 8.127v1.55z"/>
+          </svg>
+          <svg class="ico-vol-med hidden" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M9.741.85a.75.75 0 0 1 .375.65v13a.75.75 0 0 1-1.125.65l-6.925-4a3.642 3.642 0 0 1-1.33-4.967 3.639 3.639 0 0 1 1.33-1.332l6.925-4a.75.75 0 0 1 .75 0zm-6.924 5.3a2.139 2.139 0 0 0 0 3.7l5.8 3.35V2.8l-5.8 3.35zm8.683 6.087a4.502 4.502 0 0 0 0-8.474v1.65a2.999 2.999 0 0 1 0 5.175v1.649z"/>
+          </svg>
+          <svg class="ico-vol-low hidden" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M9.741.85a.75.75 0 0 1 .375.65v13a.75.75 0 0 1-1.125.65l-6.925-4a3.642 3.642 0 0 1-1.33-4.967 3.639 3.639 0 0 1 1.33-1.332l6.925-4a.75.75 0 0 1 .75 0zm-6.924 5.3a2.139 2.139 0 0 0 0 3.7l5.8 3.35V2.8l-5.8 3.35z"/>
+          </svg>
+          <svg class="ico-vol-mute hidden" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M13.86 5.47a.75.75 0 0 0-1.061 0l-1.47 1.47-1.47-1.47A.75.75 0 0 0 8.8 6.53L10.269 8l-1.47 1.47a.75.75 0 1 0 1.06 1.06l1.47-1.47 1.47 1.47a.75.75 0 0 0 1.06-1.06L12.39 8l1.47-1.47a.75.75 0 0 0 0-1.06z"/>
+            <path d="M10.116.85A.75.75 0 0 1 10.491.5v13a.75.75 0 0 1-1.125.65l-6.925-4a3.642 3.642 0 0 1-1.33-4.967 3.639 3.639 0 0 1 1.33-1.332l6.925-4a.75.75 0 0 1 .75 0zm-6.924 5.3a2.139 2.139 0 0 0 0 3.7l5.8 3.35V2.8l-5.8 3.35z"/>
+          </svg>
+        </button>
+        <div class="vol" id="volWrap">
+          <div class="vol-bg">
+            <div class="vol-fill" id="volFill"></div>
+          </div>
+          <input type="range" id="volume" min="0" max="100" value="80" step="1" disabled />
+        </div>
+        <!-- apre "In ascolto" a schermo intero, come il tap sulla copertina.
+             Sta dentro .extra, che su mobile e' gia' nascosto: quindi resta
+             solo sul desktop, dove la copertina del mini player e' piccola e
+             non e' ovvio che si possa cliccare. -->
+        <button type="button" class="t-btn ghost ico expand-ico" id="btnExpandPlayer" title="Apri a schermo intero" aria-label="Apri a schermo intero" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <nav class="mobile-nav" aria-label="Navigazione">
+      <a href="#" class="nav-link active" data-view="home">
+        <span class="nav-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M12 2.2 1.5 11h3.1v10h6.1v-6.4h2.6V21h6.1V11h3.1L12 2.2z"/>
+          </svg>
+        </span>
+        <span class="nav-label">Home</span>
+      </a>
+      <a href="#" class="nav-link" data-view="search">
+        <span class="nav-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/>
+          </svg>
+        </span>
+        <span class="nav-label">Cerca</span>
+      </a>
+      <a href="#" class="nav-link" data-view="playlists">
+        <span class="nav-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <rect x="2" y="3" width="4" height="18" rx="1.5"/>
+            <rect x="9" y="3" width="4" height="18" rx="1.5"/>
+            <path d="M16 3 L21 8 L21 21 L16 21 Z"/>
+          </svg>
+        </span>
+        <span class="nav-label">Libreria</span>
+      </a>
+      <a href="#" class="nav-link" data-view="dj" id="navDjMobile" aria-label="Apri JARVIS, il tuo DJ">
+        <span class="nav-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <rect x="4" y="9" width="3" height="6" rx="1.5"/>
+            <rect x="10.5" y="4" width="3" height="16" rx="1.5"/>
+            <rect x="17" y="11" width="3" height="4" rx="1.5"/>
+          </svg>
+        </span>
+        <span class="nav-label">DJ</span>
+      </a>
+    </nav>
+    <!-- Spacer fisico home indicator (PWA iOS) -->
+    <div class="bottom-dock-safe" aria-hidden="true"></div>
+    </div><!-- /.bottom-dock -->
+
+  <!-- Connect sheet (stile Spotify) -->
+  <div id="connectSheet" class="connect-sheet" aria-hidden="true" role="dialog" aria-labelledby="connectTitle">
+    <div class="connect-backdrop" id="connectBackdrop"></div>
+    <div class="connect-panel">
+      <div class="connect-handle" aria-hidden="true"></div>
+      <header class="connect-head">
+        <h2 id="connectTitle">Connect</h2>
+        <button type="button" class="connect-close" id="connectClose" aria-label="Chiudi">✕</button>
+      </header>
+      <p class="connect-sub" id="connectSub">Scegli dove ascoltare</p>
+      <div id="connectList" class="connect-list">
+        <div class="connect-loading">Carico dispositivi…</div>
+      </div>
+      <p class="connect-hint" id="connectHint">
+        Avvia un brano su questo device, poi tocca un altro dispositivo per mandarlo lì.
+      </p>
+    </div>
+  </div>
+
+  <!-- Full Now Playing (tap mini banner → sheet stile Spotify) -->
+  <div id="nowPlayingSheet" class="np-sheet" aria-hidden="true">
+    <div class="np-bg" id="npBg"></div>
+    <div class="np-glass" id="npGlass" aria-hidden="true"></div>
+    <!-- sopra .np-glass apposta: quel layer ha un backdrop-filter blur di
+         48px (tema liquid-glass, default) che appiattiva quasi del tutto
+         qualunque animazione sotto di lui — segnalato da Vitto,
+         2026-08-01: "controlla che non ci sia un layer sopra che blocchi
+         la visualizzazione dell'animazione". Vedi .np-aurora in style.css. -->
+    <div class="np-aurora" id="npAurora" aria-hidden="true"></div>
+    <div class="np-inner">
+      <div class="np-page-one">
+      <header class="np-top">
+        <button type="button" class="np-icon-btn" id="npClose" title="Chiudi" aria-label="Chiudi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
+            <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </button>
+        <div class="np-context">
+          <span class="np-context-label">IN RIPRODUZIONE</span>
+          <span class="np-context-name" id="npContext">CRACKIFY</span>
+        </div>
+        <button type="button" class="np-icon-btn" id="npMore" title="Altro" aria-label="Altro" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="np-art-wrap" id="npArtWrap">
+        <div class="np-art" id="npArt">⚡</div>
+        <!-- prende il posto della cover quando siamo in modalità JARVIS
+             (nessuna cover per un "DJ", vedi memoria progetto) — mostrata/
+             nascosta via .np-sheet.jarvis-mode, sincronizzata su
+             jarvisSessionActive/jarvisSessionStarting da
+             syncNowPlayingSheetMeta. Stessa soundbar di sempre, solo
+             spostata dentro il now-playing normale invece di uno sheet
+             separato (richiesta di Vitto, 2026-07-31: "riusare il
+             fullscreen che già abbiamo"). -->
+        <div class="dj-soundbar" id="djSoundbar" aria-hidden="true">
+          <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+          <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+          <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+          <span class="dj-bar"></span><span class="dj-bar"></span><span class="dj-bar"></span>
+          <span class="dj-bar"></span><span class="dj-bar"></span>
+        </div>
+      </div>
+
+      <!-- battuta parlata di JARVIS + indicatore di caricamento — solo
+           modalità JARVIS, vedi jarvisSetLine/setJarvisLoading in app.js -->
+      <p class="dj-line" id="djLine"></p>
+      <div class="dj-loading" id="djLoading" hidden aria-hidden="true">
+        <span class="dj-loading-track"><span class="dj-loading-bar"></span></span>
+      </div>
+
+      <div class="np-meta-row" id="npMetaRow">
+        <div class="np-meta">
+          <div class="np-title" id="npTitle"><span class="np-mq-track">Nessun brano</span></div>
+          <div class="np-artist" id="npArtist"><span class="np-mq-track">—</span></div>
+        </div>
+        <button type="button" class="np-icon-btn np-like heart-fillable" id="npLike" title="Salva" disabled aria-pressed="false">
+          <svg class="heart-anim" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <defs>
+              <clipPath id="heartClipNp">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </clipPath>
+            </defs>
+            <path class="heart-shell" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
+            <path class="heart-outline" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+            <g clip-path="url(#heartClipNp)">
+              <g class="heart-liquid">
+                <g class="heart-waves">
+                  <path class="hw hw-a" d="M-24 4 Q-21 1 -18 4 T-12 4 T-6 4 T0 4 T6 4 T12 4 T18 4 T24 4 T30 4 T36 4 V28 H-24Z"/>
+                  <path class="hw hw-b" d="M-24 5 Q-21 7.5 -18 5 T-12 5 T-6 5 T0 5 T6 5 T12 5 T18 5 T24 5 T30 5 T36 5 V28 H-24Z"/>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </button>
+      </div>
+
+      <div class="np-timeline">
+        <div class="np-seek" id="npSeekWrap">
+          <div class="np-seek-bg">
+            <div class="np-seek-buf" id="npSeekBuf"></div>
+            <div class="np-seek-fill" id="npSeekFill"></div>
+          </div>
+          <input type="range" id="npSeek" min="0" max="1000" value="0" step="1" disabled />
+        </div>
+        <div class="np-times">
+          <span id="npTimeCur">0:00</span>
+          <span id="npTimeDur">0:00</span>
+        </div>
+      </div>
+
+      <div class="np-transport">
+        <button type="button" class="np-t-btn" id="npShuffle" title="Shuffle" aria-pressed="false">
+          <svg class="np-ico-shuffle" viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+            <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+          </svg>
+          <!-- solo in modalità JARVIS (vedi CSS .jarvis-mode #npShuffle): lo
+               shuffle non ha senso su una coda già scelta da JARVIS, al suo
+               posto un microfono per dettare la richiesta a voce invece che
+               scriverla — richiesta di Vitto, 2026-08-07. -->
+          <svg class="np-ico-mic hidden" viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path d="M8 1a2 2 0 0 0-2 2v5a2 2 0 1 0 4 0V3a2 2 0 0 0-2-2z"/>
+            <path d="M4.5 7a.5.5 0 0 1 .5.5 3 3 0 0 0 6 0 .5.5 0 0 1 1 0 4 4 0 0 1-3.5 3.969V13h1.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1H7v-2.031A4 4 0 0 1 4 7.5a.5.5 0 0 1 .5-.5z"/>
+          </svg>
+        </button>
+        <button type="button" class="np-t-btn" id="npPrev" title="Precedente">
+          <svg viewBox="0 0 16 16" width="28" height="28" fill="currentColor" aria-hidden="true">
+            <path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v12.575a.7.7 0 0 1-1.05.607L4 9.149V14.3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7a.7.7 0 0 1 .7-.7h1.6z"/>
+          </svg>
+        </button>
+        <button type="button" class="np-play" id="npPlay" title="Play / Pausa" disabled>
+          <svg class="np-ico-play" viewBox="0 0 16 16" width="28" height="28" fill="currentColor" aria-hidden="true">
+            <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+          </svg>
+          <svg class="np-ico-pause hidden" viewBox="0 0 16 16" width="28" height="28" fill="currentColor" aria-hidden="true">
+            <path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>
+          </svg>
+        </button>
+        <button type="button" class="np-t-btn" id="npNext" title="Successivo">
+          <svg viewBox="0 0 16 16" width="28" height="28" fill="currentColor" aria-hidden="true">
+            <path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.107A.7.7 0 0 0 1 1.712v12.575a.7.7 0 0 0 1.05.607L12 6.851V14.3a.7.7 0 0 0 .7.7h1.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-1.6z"/>
+          </svg>
+        </button>
+        <button type="button" class="np-t-btn" id="npRepeat" title="Ripeti" aria-pressed="false">
+          <svg class="np-ico-repeat" viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
+          </svg>
+          <svg class="np-ico-repeat-one hidden" viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h.75v1.5h-.75A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5zM12.25 1h-.75v1.5h.75a2.25 2.25 0 0 1 2.25 2.25v5a2.25 2.25 0 0 1-2.25 2.25H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439A3.75 3.75 0 0 0 16 8.25v-5A3.75 3.75 0 0 0 12.25 1z"/>
+            <path d="M9.12 8V4H7.97v.87H8.6V8H9.12zM7.5 8.9v.7h2.2v-.7H7.5z"/>
+          </svg>
+          <!-- solo in modalità JARVIS (vedi CSS .jarvis-mode #npRepeat):
+               sostituisce repeat/repeat-one, apre/chiude il campo
+               richieste invece di cambiare la modalità ripeti — richiesta
+               di Vitto, 2026-08-01, "pagina più clean" -->
+          <svg class="np-ico-chat hidden" viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- richiesta testuale a JARVIS — solo modalità JARVIS -->
+      <form id="djRequestForm" class="dj-request" autocomplete="off">
+        <input
+          type="text"
+          id="djRequestInput"
+          class="dj-request-input"
+          placeholder="Chiedi qualcosa a JARVIS…"
+          enterkeyhint="send"
+          maxlength="120"
+        />
+        <button type="submit" class="dj-request-send" title="Invia" aria-label="Invia">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+            <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
+          </svg>
+        </button>
+      </form>
+      </div><!-- /.np-page-one -->
+
+      <!-- overlay dettatura vocale — sostituisce la barra di testo mentre
+           il microfono ascolta (richiesta di Vitto, 2026-08-07: "il
+           classico popup con il cerchio e sotto quello che dici, alla fine
+           invia diretto senza click"). Tap sul cerchio = stop manuale
+           (invia comunque quello capito finora), stessa strada del secondo
+           tap sul pulsante microfono. La X invece ANNULLA senza inviare
+           niente — mancava del tutto (Vitto, 2026-08-07: "occhio che il
+           processo venga killato con cura", nessun modo di uscire senza
+           mandare una richiesta a metà) — vedi jarvisVoiceRequest in
+           app.js: ferma il riconoscimento nativo con Speech.stop() PRIMA
+           di scartare il testo, non lo lascia acceso in background. -->
+      <div class="jarvis-voice-overlay" id="jarvisVoiceOverlay" hidden>
+        <button type="button" class="jarvis-voice-close np-icon-btn" id="jarvisVoiceCancel" title="Annulla" aria-label="Annulla dettatura">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
+            <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </button>
+        <button type="button" class="jarvis-voice-circle" id="jarvisVoiceCircle" title="Tocca per fermare e inviare" aria-label="Ferma dettatura e invia">
+          <svg viewBox="0 0 16 16" width="34" height="34" fill="currentColor" aria-hidden="true">
+            <path d="M8 1a2 2 0 0 0-2 2v5a2 2 0 1 0 4 0V3a2 2 0 0 0-2-2z"/>
+            <path d="M4.5 7a.5.5 0 0 1 .5.5 3 3 0 0 0 6 0 .5.5 0 0 1 1 0 4 4 0 0 1-3.5 3.969V13h1.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1H7v-2.031A4 4 0 0 1 4 7.5a.5.5 0 0 1 .5-.5z"/>
+          </svg>
+        </button>
+        <div class="jarvis-voice-text" id="jarvisVoiceText">Ti ascolto…</div>
+      </div>
+
+      <div class="np-lyrics-preview" id="npLyricsPreview" hidden>
+        <button type="button" class="np-lp-head" id="npLyricsExpand" title="Espandi testo" aria-label="Espandi testo">
+          <span class="np-lp-label">Testo</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+          </svg>
+        </button>
+        <div class="np-lp-body" id="npLyricsPreviewBody"></div>
+      </div>
+    </div><!-- /.np-inner -->
+
+    <!--
+      FUORI da .np-inner: evita containing-block del transform
+      (altrimenti fixed = solo colonna mobile → doppio pannello)
+    -->
+    <div class="np-lyrics" id="npLyricsPanel" hidden>
+      <div class="ly-solid-bg" id="lySolidBg" aria-hidden="true"></div>
+      <header class="ly-top">
+        <button type="button" class="ly-icon-btn" id="npLyricsClose" title="Chiudi" aria-label="Chiudi testo">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true">
+            <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+          </svg>
+        </button>
+        <div class="ly-top-center">
+          <div class="ly-top-title" id="npLyricsTrack">—</div>
+          <div class="ly-top-artist" id="npLyricsArtist">—</div>
+        </div>
+        <span class="ly-mode-pill" id="npLyricsLabel" hidden>PAROLE</span>
+      </header>
+      <div id="npLyricsArt" hidden aria-hidden="true"></div>
+      <div id="npLyricsNow" hidden aria-hidden="true"><span id="npLyricsNowText"></span></div>
+
+      <div class="ly-scroll" id="npLyricsBody">
+        <p class="ly-placeholder">Apri un brano per il testo…</p>
+      </div>
+
+      <footer class="ly-dock">
+        <div class="ly-dock-seek">
+          <span class="ly-t" id="lyTimeCur">0:00</span>
+          <div class="ly-seek-track" id="lySeekTrack">
+            <div class="ly-seek-fill" id="lySeekFill"></div>
+          </div>
+          <span class="ly-t" id="lyTimeDur">0:00</span>
+        </div>
+        <button type="button" class="ly-play" id="lyPlayBtn" title="Play / Pausa" aria-label="Play">
+          <svg class="ly-ico-play" viewBox="0 0 16 16" width="28" height="28" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+          <svg class="ly-ico-pause hidden" viewBox="0 0 16 16" width="28" height="28" fill="currentColor"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>
+        </button>
+        <div class="ly-src" id="npLyricsFoot"></div>
+      </footer>
+    </div>
+  </div><!-- /.np-sheet -->
+
+  <!-- overlay a tutto schermo (sopra minibar e barra in basso) durante
+       l'apertura di chart/playlist/artista/album — vedi openChart,
+       openDeezerPlaylist, openDetailPage in app.js -->
+  <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+    <button type="button" id="loadingOverlayClose" class="loading-overlay-close" title="Annulla" aria-label="Annulla">✕</button>
+    <div class="loading-spinner"></div>
+    <p>Caricamento contenuto…</p>
+    <!-- solo da telefono (03/10): la pagina che sta arrivando, come lo
+         scheletro del prototipo, al posto di velo + rotellina -->
+    <div class="loading-scheletro" aria-hidden="true">
+      <div class="lsk-cover"></div>
+      <i class="lsk-kicker"></i>
+      <i class="lsk-titolo"></i>
+      <i class="lsk-meta"></i>
+      <div class="lsk-azioni"><i></i><i></i></div>
+      <i class="lsk-campo"></i>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+      <div class="lsk-riga"><i></i><span><i></i><i></i></span></div>
+    </div>
+  </div>
+
+  <!-- schermata di preparazione JARVIS: nero+arancione di brand invece
+       dello spinner generico sopra, stesse barre "a riposo" della
+       soundbar vera nel now-playing sheet — vedi openDjSheet in app.js -->
+  <div id="jarvisLoadingOverlay" class="jarvis-loading-overlay hidden" aria-hidden="true">
+    <button type="button" id="jarvisLoadingOverlayClose" class="loading-overlay-close" title="Continua" aria-label="Continua">✕</button>
+    <div class="jarvis-loading-bars" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <p class="jarvis-loading-text">JARVIS si sta sintonizzando…</p>
+  </div>
+
+  <!-- Coda come bottom sheet (stile Spotify), aperta dal tasto "Apri" del
+       toast dopo un'aggiunta in coda — vedi addToQueue/openQueueSheet in
+       app.js. Sposta #queueList al suo interno invece di duplicarne il
+       rendering/drag-reorder: stesso nodo, stesso stato, si vede solo in un
+       contenitore diverso (closeQueueSheet lo rimette in #viewQueue). -->
+  <div id="queueSheet" class="queue-sheet" aria-hidden="true">
+    <div class="queue-sheet-backdrop" id="queueSheetBackdrop"></div>
+    <div class="queue-sheet-panel">
+      <div class="queue-sheet-handle" id="queueSheetHandle"></div>
+      <div class="queue-sheet-head">
+        <h2>Coda</h2>
+        <button type="button" id="qsClear" class="qs-pill-btn">Cancella</button>
+      </div>
+      <p class="queue-sheet-sub" id="qsNowLabel"></p>
+      <div class="queue-sheet-list-wrap" id="queueSheetListWrap"></div>
+      <div class="queue-sheet-controls">
+        <button type="button" id="qsShuffle" class="qs-ctrl-btn" aria-pressed="false">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+            <path d="m7.5 10.723.98-1.167.957 1.14a2.25 2.25 0 0 0 1.724.804h1.947l-1.017-1.018a.75.75 0 1 1 1.06-1.06l2.829 2.828-2.829 2.828a.75.75 0 1 1-1.06-1.06L13.109 13H11.16a3.75 3.75 0 0 1-2.873-1.34l-.957-1.139z"/>
+          </svg>
+          <span>Riproduzione casuale</span>
+        </button>
+        <button type="button" id="qsRepeat" class="qs-ctrl-btn" aria-pressed="false" data-mode="0">
+          <svg id="qsIcoRepeat" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
+          </svg>
+          <svg id="qsIcoRepeatOne" class="hidden" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h.75v1.5h-.75A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5zM12.25 1h-.75v1.5h.75a2.25 2.25 0 0 1 2.25 2.25v5a2.25 2.25 0 0 1-2.25 2.25H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439A3.75 3.75 0 0 0 16 8.25v-5A3.75 3.75 0 0 0 12.25 1z"/>
+            <path d="M9.12 8V4H7.97v.87H8.6V8H9.12zM7.5 8.9v.7h2.2v-.7H7.5z"/>
+          </svg>
+          <span>Ripeti</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu ⋯ del player a tutto schermo (Vitto 2026-08-07): action sheet
+       stile iOS con le azioni sul brano in riproduzione. Ordine per
+       importanza; "Timer di spegnimento" separato in fondo perché è
+       un'azione globale, non sul brano. Vedi openNpMenu in app.js. -->
+  <div id="npMenuSheet" class="np-menu-sheet" aria-hidden="true">
+    <div class="np-menu-backdrop" id="npMenuBackdrop"></div>
+    <div class="np-menu-panel" role="menu" aria-label="Opzioni brano">
+      <div class="np-menu-handle" aria-hidden="true"></div>
+      <div class="np-menu-track">
+        <div class="np-menu-cover" id="npMenuCover" aria-hidden="true">▤</div>
+        <div class="np-menu-meta">
+          <strong id="npMenuTitle">—</strong>
+          <span id="npMenuArtist">—</span>
+        </div>
+      </div>
+      <div class="np-menu-actions">
+        <button type="button" class="np-menu-row" id="npMenuSimilar" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7v10"/><path d="M4 10v4"/><path d="M16 6v12"/><path d="M20 9v6"/></svg>
+          </span>
+          <span class="np-menu-label">Musica simile</span>
+        </button>
+        <button type="button" class="np-menu-row" id="npMenuLike" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg id="npMenuLikeIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          </span>
+          <span class="np-menu-label" id="npMenuLikeLabel">Aggiungi ai preferiti</span>
+        </button>
+        <button type="button" class="np-menu-row" id="npMenuQueue" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h9"/><path d="M18 12v6"/><path d="M15 15h6"/></svg>
+          </span>
+          <span class="np-menu-label">Aggiungi alla coda</span>
+        </button>
+        <button type="button" class="np-menu-row" id="npMenuAddPl" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13"/><path d="M3 12h13"/><path d="M3 18h7"/><path d="M16 16v6"/><path d="M13 19h6"/></svg>
+          </span>
+          <span class="np-menu-label">Aggiungi a una playlist</span>
+        </button>
+        <button type="button" class="np-menu-row" id="npMenuArtistBtn" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          </span>
+          <span class="np-menu-label">Vai all'artista</span>
+        </button>
+        <button type="button" class="np-menu-row" id="npMenuGoQueue" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h12"/></svg>
+          </span>
+          <span class="np-menu-label">Vai alla coda</span>
+        </button>
+        <div class="np-menu-divider" aria-hidden="true"></div>
+        <button type="button" class="np-menu-row" id="npMenuTimer" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+          <span class="np-menu-label">Timer di spegnimento</span>
+        </button>
+        <!-- id="crkFixCover" NON è un refuso: finora questa voce esisteva
+             SOLO nell'app Mac, iniettata via JS da mac-app (Vitto
+             2026-08-10), e su telefono non c'era. Ora è qui per tutti, e
+             quell'iniezione si tira indietro da sola proprio quando trova
+             questo id — così un guscio Mac non ancora ricompilato non
+             aggiunge un doppione. Se rinomini l'id, ricompila il Mac. -->
+        <button type="button" class="np-menu-row" id="crkFixCover" role="menuitem">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 5H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zm-1 11.2-4.1-4.6-3.2 3.7-2.3-2.4L4 19h16zM8.5 10.5a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 0 1 0 3.2z"/></svg>
+          </span>
+          <span class="np-menu-label" id="npMenuFixCoverLabel">Rigenera copertina</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Foglio del download di una playlist (07/10, Vitto): il primo tocco sul
+       tasto ↓ fa partire il download, i tocchi successivi (finché il lavoro
+       esiste: in corso, in coda, in pausa o fallito) aprono questo foglio con
+       tempo stimato, sospendi/riprendi e cancella. A download finito lo
+       stesso foglio offre «Aggiorna copia offline» (brani aggiunti dopo) ed
+       «Elimina download» con conferma. Stesso guscio del menu ⋯ del player.
+       Vedi apriFoglioDownload in app.js. -->
+  <div id="dlSheet" class="np-menu-sheet dl-sheet" aria-hidden="true">
+    <div class="np-menu-backdrop" id="dlSheetBackdrop"></div>
+    <div class="np-menu-panel" role="dialog" aria-label="Download della playlist">
+      <div class="np-menu-handle" aria-hidden="true"></div>
+      <div class="np-menu-track">
+        <div class="np-menu-cover" id="dlSheetCover" aria-hidden="true">♪</div>
+        <div class="np-menu-meta">
+          <strong id="dlSheetNome">—</strong>
+          <span id="dlSheetBrani">—</span>
+        </div>
+      </div>
+      <div class="dl-sheet-stato">
+        <div class="dl-sheet-numeri">
+          <span id="dlSheetTempo">—</span>
+          <span id="dlSheetPct" class="dl-sheet-pct">0%</span>
+        </div>
+        <div class="dl-sheet-barra"><span id="dlSheetBarra" class="dl-sheet-barra-pieno"></span></div>
+      </div>
+      <div class="np-menu-actions">
+        <button type="button" class="np-menu-row" id="dlSheetPausa">
+          <span class="np-menu-ico" id="dlSheetPausaIco" aria-hidden="true"></span>
+          <span class="np-menu-label" id="dlSheetPausaLabel">Sospendi</span>
+        </button>
+        <!-- solo a download finito: scarica i brani aggiunti alla playlist
+             dopo la copia offline (e toglie quelli che non ci sono più) -->
+        <button type="button" class="np-menu-row" id="dlSheetAggiorna">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </span>
+          <span class="dl-sheet-cancella-testo">
+            <span class="np-menu-label">Aggiorna copia offline</span>
+            <span class="dl-sheet-cancella-sub" id="dlSheetAggiornaSub"></span>
+          </span>
+        </button>
+        <button type="button" class="np-menu-row" id="dlSheetTutti">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          </span>
+          <span class="np-menu-label">Tutti i download</span>
+        </button>
+        <div class="np-menu-divider" aria-hidden="true"></div>
+        <button type="button" class="np-menu-row dl-sheet-cancella" id="dlSheetCancella">
+          <span class="np-menu-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+          </span>
+          <span class="dl-sheet-cancella-testo">
+            <span class="np-menu-label" id="dlSheetCancellaLabel">Cancella download</span>
+            <span class="dl-sheet-cancella-sub" id="dlSheetCancellaSub"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- "Aggiungi a playlist" — DELIBERATAMENTE fuori da .app (che ha
+       position+z-index e crea uno stacking context): dal menu ⋯ del player a
+       tutto schermo va mostrato SOPRA il player, e da dentro .app lo z-index
+       non riusciva a scavalcarlo (Vitto 2026-08-07). Qui è nel contesto root
+       col resto degli overlay, quindi #plModal{z-index:21500} vince davvero. -->
+  <div id="plModal" class="modal pl-picker hidden">
+    <div class="modal-card pl-picker-card">
+      <div class="pl-picker-head">
+        <h2>Aggiungi a playlist</h2>
+        <button type="button" id="plModalClose" class="pl-picker-close" title="Chiudi" aria-label="Chiudi">✕</button>
+      </div>
+      <p id="plModalTrack" class="pl-picker-track"></p>
+      <ul id="plModalList" class="pl-picker-list"></ul>
+      <div class="pl-picker-new">
+        <input id="plModalNewName" type="text" placeholder="Nuova playlist…" maxlength="80" />
+        <button type="button" id="plModalCreate" class="page-btn accent pl-picker-create">Crea</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selettore copertine (Vitto 2026-10-06): «Rigenera copertina» nel menu
+       ⋯ del player apre questa griglia con tutte le copertine trovate (iTunes,
+       Deezer, YouTube) e la scelta sostituisce entrambe le copertine del
+       brano. Fuori da .app per lo stesso motivo di #plModal: deve stare
+       sopra il player a tutto schermo. -->
+  <div id="coverPickModal" class="modal cover-pick hidden" role="dialog" aria-modal="true" aria-labelledby="coverPickTitle">
+    <div class="modal-card cover-pick-card">
+      <div class="pl-picker-head">
+        <h2 id="coverPickTitle">Scegli la copertina</h2>
+        <button type="button" id="coverPickClose" class="pl-picker-close" title="Chiudi" aria-label="Chiudi">✕</button>
+      </div>
+      <p id="coverPickTrack" class="pl-picker-track"></p>
+      <form id="coverPickForm" class="cover-pick-search" role="search">
+        <svg class="cover-pick-search-ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="coverPickQuery" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" placeholder="Artista e titolo" aria-label="Cerca copertine" />
+        <button type="submit" class="cover-pick-search-go">Cerca</button>
+      </form>
+      <div id="coverPickGrid" class="cover-pick-grid" aria-live="polite"></div>
+      <div class="cover-pick-foot">
+        <button type="button" id="coverPickApply" class="page-btn accent cover-pick-apply" disabled>Scegli una copertina</button>
+      </div>
+    </div>
+  </div>
+  <!-- il gioco offline a schermo intero (08/10): app.js ci sposta dentro il
+       banner del gioco intero (#offlineCabinato) e lo ingrandisce; l'app gira
+       in orizzontale solo finché è aperto (OrientamentoPlugin.swift). Fuori
+       da .app e da .main, così lo swipe dai bordi non scatta sotto il gioco.
+       «Gira il telefono» si vede solo se la vista resta verticale. -->
+  <div id="dinoSchermo" class="dino-schermo hidden" role="dialog" aria-label="Gioco offline a schermo intero" aria-hidden="true">
+    <div id="dinoSchermoArea" class="dino-schermo-area"></div>
+    <!-- esci mentre corri (fermo, esce il tasto «riduci» nel banner) -->
+    <button type="button" id="dinoSchermoChiudi" class="dino-tasto dino-esci-btn" aria-label="Esci dallo schermo intero">
+      <span class="dino-tasto-cap">
+        <svg viewBox="0 0 9 9" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M0 0h2v1H0zM7 0h2v1H7zM0 1h3v1H0zM6 1h3v1H6zM1 2h3v1H1zM5 2h3v1H5zM2 3h5v1H2zM3 4h3v1H3zM2 5h5v1H2zM1 6h3v1H1zM5 6h3v1H5zM0 7h3v1H0zM6 7h3v1H6zM0 8h2v1H0zM7 8h2v1H7z"/></svg>
+      </span>
+    </button>
+    <div class="dino-gira" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>
+      <span>Gira il telefono</span>
+    </div>
+  </div>
+  <!-- impostazioni del gioco offline (08/10, Vitto: «un pulsante di
+       impostazioni dove puoi scegliere la modalità di gioco ... e una
+       leggenda oggetti e ostacoli per utenti»): foglio sopra a tutto, anche
+       allo schermo intero. Scritte a pixel, icone e record li disegna
+       app.js (dinoMenuRiempi) con gli sprite veri del gioco -->
+  <div id="dinoMenu" class="dino-menu hidden" role="dialog" aria-modal="true" aria-label="Impostazioni del gioco" aria-hidden="true">
+    <div class="dino-menu-velo" data-chiudi></div>
+    <div class="dino-menu-foglio">
+      <div class="dino-menu-testa">
+        <canvas class="dino-px" data-px="Impostazioni" data-colore="#ff8c33" data-cella="3" aria-hidden="true"></canvas>
+        <div class="dino-schede" role="tablist" aria-label="Sezioni">
+          <button type="button" role="tab" data-scheda="modi" aria-selected="true">Modalità</button>
+          <button type="button" role="tab" data-scheda="leggenda" aria-selected="false">Leggenda</button>
+        </div>
+        <button type="button" class="dino-tasto dino-menu-chiudi" data-chiudi aria-label="Chiudi">
+          <span class="dino-tasto-cap">
+            <svg viewBox="0 0 9 9" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M0 0h2v1H0zM7 0h2v1H7zM0 1h3v1H0zM6 1h3v1H6zM1 2h3v1H1zM5 2h3v1H5zM2 3h5v1H2zM3 4h3v1H3zM2 5h5v1H2zM1 6h3v1H1zM5 6h3v1H5zM0 7h3v1H0zM6 7h3v1H6zM0 8h2v1H0zM7 8h2v1H7z"/></svg>
+          </span>
+        </button>
+      </div>
+      <div class="dino-menu-corpo">
+        <section class="dino-menu-col" data-scheda="modi">
+          <h3 class="dino-menu-sez">Modalità</h3>
+          <div class="dino-modi" role="radiogroup" aria-label="Modalità di gioco">
+          <button type="button" class="dino-modo" data-modo="normale" role="radio" aria-checked="false" style="--mc: #ff8c33">
+            <canvas class="dino-modo-icona" aria-hidden="true"></canvas>
+            <span class="dino-modo-testo">
+              <span class="dino-modo-riga"><canvas class="dino-px" data-px="Normale" data-colore="#ff8c33" data-cella="2" aria-hidden="true"></canvas><span class="dino-modo-hi"></span></span>
+              <span class="dino-visivo">Normale.</span>
+              <span class="dino-modo-desc">Bonus e cattivi dosati, messi dove si prendono senza salti suicidi.</span>
+            </span>
+            <span class="dino-modo-lato">
+              <span class="dino-modo-spunta" aria-hidden="true"><svg viewBox="0 0 7 6" width="14" height="12" fill="currentColor"><path d="M6 0h1v2H6zM5 2h1v1H5zM4 3h1v1H4zM0 2h1v2H0zM1 3h1v1H1zM2 4h1v1H2zM3 4h1v1H3zM2 5h2v1H2z"/></svg></span>
+            </span>
+          </button>
+          <button type="button" class="dino-modo" data-modo="crazy" role="radio" aria-checked="false" style="--mc: #ff5fd2">
+            <canvas class="dino-modo-icona" aria-hidden="true"></canvas>
+            <span class="dino-modo-testo">
+              <span class="dino-modo-riga"><canvas class="dino-px" data-px="Crazy mode" data-colore="#ff5fd2" data-cella="2" aria-hidden="true"></canvas><span class="dino-modo-hi"></span></span>
+              <span class="dino-visivo">Crazy mode.</span>
+              <span class="dino-modo-desc">Bonus e cattivi tre volte più spesso. Caos garantito.</span>
+            </span>
+            <span class="dino-modo-lato">
+              <span class="dino-modo-spunta" aria-hidden="true"><svg viewBox="0 0 7 6" width="14" height="12" fill="currentColor"><path d="M6 0h1v2H6zM5 2h1v1H5zM4 3h1v1H4zM0 2h1v2H0zM1 3h1v1H1zM2 4h1v1H2zM3 4h1v1H3zM2 5h2v1H2z"/></svg></span>
+            </span>
+          </button>
+          <button type="button" class="dino-modo" data-modo="classico" role="radio" aria-checked="false" style="--mc: #c9c9ce">
+            <canvas class="dino-modo-icona" aria-hidden="true"></canvas>
+            <span class="dino-modo-testo">
+              <span class="dino-modo-riga"><canvas class="dino-px" data-px="Default dino" data-colore="#c9c9ce" data-cella="2" aria-hidden="true"></canvas><span class="dino-modo-hi"></span></span>
+              <span class="dino-visivo">Default dino.</span>
+              <span class="dino-modo-desc">Il dinosauro di Chrome e basta: niente bonus, niente cattivi.</span>
+            </span>
+            <span class="dino-modo-lato">
+              <span class="dino-modo-spunta" aria-hidden="true"><svg viewBox="0 0 7 6" width="14" height="12" fill="currentColor"><path d="M6 0h1v2H6zM5 2h1v1H5zM4 3h1v1H4zM0 2h1v2H0zM1 3h1v1H1zM2 4h1v1H2zM3 4h1v1H3zM2 5h2v1H2z"/></svg></span>
+            </span>
+          </button>
+          </div>
+          <p class="dino-menu-nota">Ogni modalità ha il suo record. Cambiandola, la partita in pausa ricomincia.</p>
+        </section>
+        <section class="dino-menu-col" data-scheda="leggenda">
+          <h3 class="dino-menu-sez">Leggenda</h3>
+          <div class="dino-leg-colonne">
+          <div class="dino-leg-gruppo">
+          <h4 class="dino-leg-tit">Bonus <small>si prendono saltando</small></h4>
+          <ul class="dino-leg">
+            <li data-icona="scaglia" data-extra><canvas aria-hidden="true"></canvas><div><b>Godzilla</b><span>Diventi Godzilla e spacchi tutto. Tieni premuto e lascia: soffio atomico.</span></div><em>8 s</em></li>
+            <li data-icona="stella" data-extra><canvas aria-hidden="true"></canvas><div><b>Stella</b><span>Invincibile: quello che tocchi va in pezzi.</span></div><em>8 s</em></li>
+            <li data-icona="cuffie" data-extra><canvas aria-hidden="true"></canvas><div><b>Scudo</b><span>Una bolla blu che para un colpo.</span></div><em>15 s</em></li>
+            <li data-icona="basso" data-extra><canvas aria-hidden="true"></canvas><div><b>Boombox</b><span>Bass drop: l'onda spazza via tutto lo schermo.</span></div><em>Subito</em></li>
+            <li data-icona="pozione" data-extra><canvas aria-hidden="true"></canvas><div><b>Mini</b><span>Diventi piccolo piccolo: passi dove prima no.</span></div><em>8 s</em></li>
+          </ul>
+          </div>
+          <div class="dino-leg-gruppo">
+          <h4 class="dino-leg-tit">Cattivi <small>da evitare</small></h4>
+          <ul class="dino-leg dino-leg-cattivi">
+            <li data-icona="mixer"><canvas aria-hidden="true"></canvas><div><b>Mixer</b><span>Basso: saltalo. Da uno a tre canali.</span></div></li>
+            <li data-icona="cristallo"><canvas aria-hidden="true"></canvas><div><b>Cristalli</b><span>Alti e a punta: salta presto, anche a gruppi di tre.</span></div></li>
+            <li data-icona="fantasma"><canvas aria-hidden="true"></canvas><div><b>Fantasmino</b><span>Basso: saltalo. Alto: resta giù, ti passa sopra.</span></div></li>
+            <li data-icona="mina" data-extra><canvas aria-hidden="true"></canvas><div><b>Mina</b><span>Bassa, con la lucina rossa: saltala.</span></div></li>
+            <li data-icona="paracadute" data-extra><canvas aria-hidden="true"></canvas><div><b>Mina col paracadute</b><span>Scende dal cielo e a terra diventa una mina.</span></div></li>
+            <li data-icona="virus" data-extra><canvas aria-hidden="true"></canvas><div><b>Errore di Windows</b><span>Non uccide: ti riempie lo schermo di finestre. E chiuderle non basta.</span></div></li>
+          </ul>
+          </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
