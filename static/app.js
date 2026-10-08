@@ -14961,6 +14961,15 @@ const DINO_RECORD_KEY = "crackify_dino_record2";
 //   il campo si ricentra a ogni fotogramma da dino.w e dino.h, così rotazione,
 //   schermo intero e Home desktop non rompono niente. Il dito arriva già in
 //   unità del campo. Un solo dito basta: zone, tocco, tieni premuto, trascina.
+//   Vincoli: la scala è quella del gioco e l'altezza è il limite (162 unità
+//   nel banner e in Home, 168 a schermo intero), quindi campo al massimo
+//   ~296 × 150, misure pari (celle su pixel interi); a schermo intero
+//   l'angolo in alto a destra è della ×. Fisica e passi propri, a tick fisso
+//   di 1000/60 con accumulatore (mai DINO_G né dinoSpinta: il salto del dino
+//   è alto 58 unità). Quello che cambia (puntini mangiati) su una tela
+//   propria dentro g: la cache di dinoTela si svuota tutta oltre 160 chiavi.
+//   Con la musica di Crackify accesa il gioco tace: ogni segnale anche a vista.
+//   Il simulatore ha lo scenario col boss: node tools/percorso/run.mjs misto boss.
 //
 // · Debug: window.__dinoBoss("invasori") chiama subito quel boss (anche con
 //   BOSS_ACCESO spento); con BOSS_ACCESO window.__dino.punti = 990 porta

@@ -31,7 +31,7 @@ Nel browser si può forzare: `window.isNativeShell = () => true; enterOfflineMod
 - **Cattivi** (`DINO_TIPI`): mixer piccoli, **cristalli arancioni** (i "grandi", `dinoCristalli`), fantasmini (alti non scavalcabili), mina, mina col paracadute,
   icona di Windows (non uccide: apre finestre d'errore che rinascono).
 - **Piazzamento degli oggetti** (`dinoNuovoOggetto`, `dino.coda`): tratto libero `OGGETTO_PRIMA`=650 ms / `OGGETTO_DOPO`=800 ms, schemi RADURA e SOPRA.
-  Verificato col simulatore: 0 bonus impossibili, finestra comoda 400-530 ms. Se tocchi spawn o distacchi, rilancia `node tools/percorso/run.mjs misto`.
+  Verificato col simulatore: 0 bonus impossibili, finestra comoda 400-530 ms. Se tocchi spawn o distacchi, rilancia `node tools/percorso/run.mjs misto`. Col boss: `run.mjs misto boss`.
 - **Schermo intero:** il banner si sposta in `#dinoSchermo`, zoom k/7, a tutto schermo, `dinoX() = 22 + dino.margine` (isola).
 - **Impostazioni:** `#dinoMenu`, in orizzontale a schede Modalità/Leggenda.
 - **Desktop:** `dinoInHome()`, titolo CRACKIFY, dopo il primo via lo spazio va al gioco (`dinoSpazio`) e non mette in pausa la musica.
@@ -74,6 +74,10 @@ Il motore sta prima di `dinoDisegna` (cerca `—— BOSS: il motore`).
   - Coordinate in unità del campo, che `dinoBossCampo` centra a ogni fotogramma (a schermo intero fra isola e bordo destro).
   - Il banner è circa 310×162 unità in verticale, 365×168 a schermo intero e fino a ~900×162 in Home.
   - Il dito arriva come `{ tipo: "giu" | "muovi" | "su", x, y, id }`. Il tasto arriva come `{ tasto: "sinistra" | "destra" | "su" | "giu" | "azione", giu }`.
+  - Vincoli: campo al massimo ~296×150 unità con misure pari; a schermo intero l'angolo in alto a destra è della ×.
+    Fisica propria a tick fisso 1000/60 (non quella del dino). Lo stato che cambia va su una tela propria (la cache di `dinoTela` si svuota oltre 160 chiavi).
+    Con la musica accesa il gioco tace: ogni segnale deve essere anche visivo.
+- **Simulatore:** `node tools/percorso/run.mjs misto boss` aggiunge un boss ogni 20 s, col primo spawn dopo il ritorno forzato a oggetto. Risultato: 0 impossibili.
 - **Debug:**
   - `window.__dinoBoss()` o `window.__dinoBoss("invasori")` chiama subito un boss (anche col boss spento).
   - Con `BOSS_ACCESO` attivo basta `window.__dino.punti = 990`.
