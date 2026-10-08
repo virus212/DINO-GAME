@@ -177,7 +177,110 @@ const BOSS_SEGNAPOSTO = {
     dinoScritta(c, testo, x + 100, y + 48, esito === "vinto" ? "#7dff4a" : "#ff5fd2");
   },
 };
-const BOSS_GIOCHI = { scimmione: BOSS_SEGNAPOSTO, labirinto: BOSS_SEGNAPOSTO, invasori: BOSS_SEGNAPOSTO };
+// il titolo del cartellone all'incontro (mai i nomi dei giochi originali; il
+// DINO_FONT grande non ha J né Q fino alla v415)
+const BOSS_GIOCHI = {
+  invasori: { ...BOSS_SEGNAPOSTO, titolo: "Invasione!", sotto: "Difendi la Terra", colore: "#7dff4a" },
+  scimmione: { ...BOSS_SEGNAPOSTO, titolo: "Scimmione!", sotto: "Sali fino in cima", colore: "#ff8a2a" },
+  labirinto: { ...BOSS_SEGNAPOSTO, titolo: "Labirinto!", sotto: "Mangia e scappa", colore: "#ffd23f" },
+};
+
+// —— FASE 2: l'incontro. Il boss segnaposto (lo stesso per tutti finché non
+// ci sono i veri): un mostro viola a celle da 1 unità, corna, occhi gialli,
+// zanne e braccia. Due pose: braccia giù e braccia su (si batte il petto) ——
+const BOSS_SAGOMA = [
+  "....hh..............hh....",
+  "....hHh............hHh....",
+  ".....hHh..........hHh.....",
+  "......hh.oooooooo.hh......",
+  ".......ooppppppppoo.......",
+  "......opPPPPPPPPPPpo......",
+  ".....opPPPPPPPPPPPPpo.....",
+  ".....opPyyPPPPPPyyPpo.....",
+  ".....opPyKPPPPPPKyPpo.....",
+  ".....opPPPPPPPPPPPPpo.....",
+  ".....opPkkkkkkkkkkPpo.....",
+  ".....opPkwkwkkwkwkPpo.....",
+  "......opPkkkkkkkkPpo......",
+  ".......oppPPPPPPppo.......",
+  "....oooopPPPPPPPPpoooo....",
+  "..oopppPPPPPPPPPPPPpppoo..",
+  ".opPPPPPPPPPPPPPPPPPPPPpo.",
+  ".opPPo.pPPPPPPPPPPp.oPPpo.",
+  ".opPo..pPPPPPPPPPPp..oPpo.",
+  ".oppo..pPPPddddPPPp..oppo.",
+  ".owwo..pPPddddddPPp..owwo.",
+  "..oo...pPPPPPPPPPPp...oo..",
+  ".......ppPPPPPPPPpp.......",
+  ".......opPPpoopPPpo.......",
+  "......oopPpo..opPpoo......",
+  "......owwwwo..owwwwo......",
+];
+// braccia su: le righe delle braccia (16-21) col pugno al petto
+const BOSS_SAGOMA_SU = BOSS_SAGOMA.map((r, i) => {
+  if (i === 16) return ".opPPPPPPwwPPPPwwPPPPPPpo.";
+  if (i === 17) return "..oopPPPwwwPPPPwwwPPPpoo..";
+  if (i === 18) return "....ooPPPPPPPPPPPPPPoo....";
+  if (i === 19) return ".......pPPPddddPPPp.......";
+  if (i === 20) return ".......pPPddddddPPp.......";
+  if (i === 21) return ".......pPPPPPPPPPPp.......";
+  return r;
+});
+const BOSS_SAGOMA_SCALA = 2; // celle da 2 unità: il boss è alto il doppio del dino
+const BOSS_SAGOMA_COLORI = { o: "#1a0826", p: "#6b2a9e", P: "#9b4fd6", d: "#4a1a70", h: "#e6e6f0", H: "#ffffff", y: "#ffd23f", K: "#141414", k: "#2a0a1a", w: "#f4f4f5" };
+// i suoni del boss sul web (Web Audio, dinoSuono): stessi numeri della
+// ricetta nativa (NativeAudioPlugin.swift, SuoniGioco, 08/10)
+const BOSS_SUONI = {
+  boss_arriva: (tono, campana, rumore) =>
+    [0, 0.3, 0.6].forEach((t) => {
+      rumore(0.07, 400, t, 0.9);
+      tono(75, 50, t, 0.12, 0.9);
+    }),
+  boss_titolo: (tono, campana) => {
+    [523, 659, 784].forEach((f, i) => tono(f, f, i * 0.09, 0.08, 0.8));
+    tono(1047, 1047, 0.27, 0.22, 0.8);
+    campana(1047, 0.27, 0.45, 0.5);
+  },
+  tendina: (tono, campana, rumore) => [600, 1200, 2400, 4800].forEach((f, i) => rumore(0.06, f, i * 0.05, 0.3 + i * 0.1)),
+  tendina_corta: (tono, campana, rumore) => rumore(0.08, 2000, 0, 0.5),
+  boss_vinto: (tono, campana) => {
+    [523, 659, 784].forEach((f, i) => tono(f, f, i * 0.1, 0.09, 0.8));
+    tono(1047, 1047, 0.3, 0.3, 0.8);
+    campana(1568, 0.3, 0.5, 0.4);
+  },
+  boss_perso: (tono) => {
+    tono(392, 196, 0, 0.32, 0.8);
+    tono(330, 165, 0.34, 0.4, 0.8);
+  },
+  inv_passo1: (tono) => tono(110, 110, 0, 0.07, 0.8),
+  inv_passo2: (tono) => tono(98, 98, 0, 0.07, 0.8),
+  inv_passo3: (tono) => tono(87, 87, 0, 0.07, 0.8),
+  inv_passo4: (tono) => tono(82, 82, 0, 0.07, 0.8),
+  inv_sparo: (tono) => tono(1400, 350, 0, 0.09, 0.5),
+  inv_scoppio: (tono, campana, rumore) => rumore(0.16, 1500, 0, 0.7),
+  inv_ufo: (tono) => {
+    tono(880, 1320, 0, 0.12, 0.4);
+    tono(1320, 880, 0.12, 0.12, 0.4);
+  },
+  inv_colpito: (tono, campana, rumore) => {
+    rumore(0.25, 800, 0, 0.8);
+    tono(220, 60, 0, 0.3, 0.7);
+  },
+  sc_petto: (tono, campana, rumore) =>
+    [0, 0.12, 0.24, 0.36].forEach((t) => {
+      rumore(0.05, 300, t, 0.9);
+      tono(80, 80, t, 0.06, 0.9);
+    }),
+  sc_barile: (tono) => {
+    tono(1320, 1320, 0, 0.05, 0.6);
+    tono(1760, 1760, 0.05, 0.06, 0.6);
+  },
+  lab_waka1: (tono) => tono(220, 440, 0, 0.07, 0.6),
+  lab_waka2: (tono) => tono(440, 220, 0, 0.07, 0.6),
+  lab_pillola: (tono) => tono(220, 880, 0, 0.25, 0.6),
+  lab_fantasma: (tono) => tono(200, 1600, 0, 0.22, 0.6),
+};
+const BOSS_TITOLO_DA = 150; // ms dell'incontro in cui entra il cartellone
 // i tasti del minigioco (desktop): frecce, spazio e invio
 const BOSS_TASTI = { ArrowLeft: "sinistra", ArrowRight: "destra", ArrowUp: "su", ArrowDown: "giu", " ": "azione", Enter: "azione" };
 
@@ -232,6 +335,17 @@ function dinoBossChiama(tipo) {
 function dinoBossFase(b, fase) {
   b.fase = fase;
   b.t = 0;
+  // suoni e vibrazioni di fase: qui, dentro il passo (mai nel disegno, che
+  // gira anche in pausa). Con la musica di Crackify accesa tacciono
+  if (fase === "arrivo") dinoSuono("boss_arriva");
+  else if (fase === "incontro") {
+    dinoSuono("boss_titolo");
+    dinoVibra("HEAVY");
+  } else if (fase === "entra" || fase === "esce") dinoSuono(dinoMotoRidotto() ? "tendina_corta" : "tendina");
+  else if (fase === "esito") {
+    dinoSuono(b.esito === "vinto" ? "boss_vinto" : b.esito === "perso" ? "boss_perso" : "tendina_corta");
+    dinoVibra(b.esito === "vinto" ? "MEDIUM" : "HEAVY");
+  }
 }
 
 /** Chiama il minigioco senza rischi: un errore lì dentro fermerebbe il ciclo
@@ -276,6 +390,12 @@ function dinoBossPasso(dt) {
     // frena fino a fermarsi (0,5: lo scenario scorre di velocità − 0,5)
     const q = Math.min(1, b.t / BOSS_FRENATA);
     dino.velocita = Math.max(0.5, b.velocita * (1 - q) * (1 - q));
+    // i passi pesanti del boss: una botta a ogni passo del suono
+    const passo = Math.floor(b.t / 300);
+    if (passo < 3 && passo !== b.passo) {
+      b.passo = passo;
+      dinoVibra("LIGHT");
+    }
     if (b.t >= BOSS_ARRIVO) dinoBossFase(b, "incontro");
   } else if (b.fase === "incontro") {
     if (b.t >= BOSS_INCONTRO) {
@@ -481,12 +601,103 @@ function dinoBossScena(c, W, H) {
   dinoBossVelo(c, W, H);
 }
 
-/** Il boss sulla strada, mentre arriva e durante l'incontro (fase 2). */
-function dinoBossStrada(c, terra) {}
+/** Dove sta il boss sulla strada: entra da destra durante l'arrivo e si
+ * ferma a 2/3 del banner, davanti al dino. Solo da b.t e dalle misure di
+ * adesso (rotazione e schermo intero non lo perdono). */
+function dinoBossPosto(b, W) {
+  const larga = BOSS_SAGOMA[0].length * BOSS_SAGOMA_SCALA;
+  const fermo = DINO_CELLA * Math.round((Math.max(dinoX() + 90, W * 0.68) - larga / 2) / DINO_CELLA);
+  if (b.fase !== "arrivo") return fermo;
+  const q = Math.min(1, b.t / BOSS_ARRIVO);
+  const ingresso = 1 - (1 - q) * (1 - q); // rallenta arrivando
+  return DINO_CELLA * Math.round((W + 6 + (fermo - W - 6) * ingresso) / DINO_CELLA);
+}
 
-/** Sopra la scena della corsa: il titolo dell'incontro (fase 2) e la tendina. */
+/** Il boss sulla strada, mentre arriva e durante l'incontro (sotto il
+ * dino e gli effetti, e trema col mondo). Cammina a passi pesanti,
+ * all'incontro si batte il petto. Con «riduci movimento» fermo. */
+function dinoBossStrada(c, terra) {
+  const b = dino.boss;
+  if (!b || (b.fase !== "arrivo" && b.fase !== "incontro" && !(b.fase === "entra" && !dinoBossCopre()))) return;
+  const W = dino.w;
+  const fermo = dinoMotoRidotto();
+  const x = dinoBossPosto(b, W);
+  let su = false;
+  let dy = 0;
+  if (!fermo && b.fase === "arrivo") dy = Math.floor(b.t / 150) % 2 ? -DINO_CELLA : 0; // passi
+  if (!fermo && b.fase === "incontro") su = Math.floor(b.t / 220) % 2 === 1; // petto
+  const righe = su ? BOSS_SAGOMA_SU : BOSS_SAGOMA;
+  const tela = dinoTela(`boss|sagoma|${su ? 1 : 0}`, righe, BOSS_SAGOMA_COLORI);
+  const sc = BOSS_SAGOMA_SCALA;
+  const bw = righe[0].length * sc;
+  const bh = righe.length * sc;
+  // ombra sotto i piedi
+  c.fillStyle = "rgba(0, 0, 0, 0.35)";
+  c.fillRect(x + 4, terra - 1, bw - 8, 2);
+  c.imageSmoothingEnabled = false;
+  c.drawImage(tela, x, terra - bh + dy, bw, bh);
+  // battendosi il petto: due cerchi d'urto che si allargano
+  if (su && !fermo) {
+    const k = (b.t % 440) / 440;
+    c.fillStyle = `rgba(155, 79, 214, ${(0.5 * (1 - k)).toFixed(2)})`;
+    const r = Math.round(12 + 20 * k);
+    const cx = x + bw / 2;
+    const cy = terra - 16 * sc;
+    c.fillRect(cx - r, cy - 1, 2, 2);
+    c.fillRect(cx + r - 2, cy - 1, 2, 2);
+  }
+}
+
+/** Il dino all'incontro: occhioni sgranati con le pupille piccole, bocca
+ * spalancata, un «!» sopra la testa e due gocce di sudore. Sopra lo sprite
+ * di sempre (occhio a colonne 19-20 righe 6-7, bocca alla riga 11). */
+function dinoBossSpavento(c, b) {
+  const x0 = dinoX();
+  const y0 = Math.round(dinoTerra() - dino.y - DINO_H);
+  c.fillStyle = "#141414";
+  c.fillRect(x0 + 17, y0 + 4, 6, 6); // contorno dell'occhio
+  c.fillStyle = "#ffffff";
+  c.fillRect(x0 + 18, y0 + 5, 4, 4);
+  c.fillStyle = "#141414";
+  c.fillRect(x0 + 20, y0 + 6, 1, 2); // pupilla minuscola che guarda il boss
+  // bocca aperta: il muso si stacca sotto la riga 11
+  c.fillStyle = "#141414";
+  c.fillRect(x0 + 20, y0 + 11, 8, 3);
+  c.fillStyle = "#ff5f7a";
+  c.fillRect(x0 + 21, y0 + 13, 4, 1); // la lingua
+  c.fillStyle = "#ffffff";
+  c.fillRect(x0 + 21, y0 + 11, 1, 1);
+  c.fillRect(x0 + 25, y0 + 11, 1, 1); // dentini
+  const fermo = dinoMotoRidotto();
+  // il «!» salta fuori a scatto e poi resta
+  if (b.t > 60) {
+    const sale = fermo || b.t > 200 ? 0 : DINO_CELLA;
+    dinoScritta(c, "!", x0 + 22, y0 - 16 + sale, "#ffd23f");
+  }
+  // gocce di sudore che cadono
+  if (!fermo) {
+    [0, 1].forEach((i) => {
+      const k = ((b.t + i * 330) % 660) / 660;
+      c.fillStyle = `rgba(150, 220, 255, ${(0.9 * (1 - k)).toFixed(2)})`;
+      c.fillRect(x0 + 13 - i * 3, y0 + 2 + Math.round(k * 10), 1, 2);
+    });
+  }
+}
+
+/** Sopra la scena della corsa: la reazione del dino e il titolo
+ * dell'incontro (col suo orologio), poi la tendina. */
 function dinoBossSopra(c, W, H) {
-  if (dino.boss) dinoBossVelo(c, W, H);
+  const b = dino.boss;
+  if (!b) return;
+  if (b.fase === "incontro" || (b.fase === "entra" && !dinoBossCopre())) {
+    dinoBossSpavento(c, b);
+    const k = b.fase === "incontro" ? b.t - BOSS_TITOLO_DA : BOSS_INCONTRO - BOSS_TITOLO_DA + b.t;
+    if (k >= 0 && k < ANNUNCIO_DURA) {
+      const g = BOSS_GIOCHI[b.tipo];
+      dinoCartellone(c, W, { testo: g.titolo, sotto: g.sotto, colore: g.colore }, dinoMotoRidotto() ? Math.max(k, 400) : k);
+    }
+  }
+  dinoBossVelo(c, W, H);
 }
 
 /** La tendina a nero (segnaposto, la vera in fase 3): strisce orizzontali

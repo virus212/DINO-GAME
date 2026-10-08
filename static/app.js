@@ -17674,9 +17674,9 @@ function dinoTelaCartello(testo, colore, bianca) {
   return tela;
 }
 
-function dinoCartellone(c, W) {
-  const a = dino.annuncio;
-  const k = dino.corsa - a.inizio;
+// a e k (ms dall'inizio) di serie quelli del potere preso; il boss passa il
+// suo titolo e il suo orologio (dino.corsa è fermo durante l'incontro)
+function dinoCartellone(c, W, a = dino.annuncio, k = dino.corsa - a.inizio) {
   const esce = Math.max(0, (k - (ANNUNCIO_DURA - 220)) / 220);
   const alfa = 1 - esce;
   const cx = W / 2;
@@ -17812,10 +17812,10 @@ function dinoDom() {
   if (cab) {
     cab.classList.toggle("finita", dino.stato === "fine");
     cab.classList.toggle("annuncio", !!(dino.annuncio && dino.corsa < dino.annuncio.fino && dino.stato !== "fine"));
-    // OFFLINE MODE (che è sopra il canvas) sparisce con la tendina, e il
-    // minigioco ha tutta l'altezza
+    // OFFLINE MODE (che è sopra il canvas) lascia il posto al titolo del boss,
+    // poi alla tendina, e il minigioco ha tutta l'altezza
     const bf = dino.boss && dino.boss.fase;
-    cab.classList.toggle("boss", bf === "entra" || bf === "gioco" || bf === "esito" || bf === "esce");
+    cab.classList.toggle("boss", bf === "incontro" || bf === "entra" || bf === "gioco" || bf === "esito" || bf === "esce");
   }
   // il tasto schermo intero: c'è solo nell'app che sa girarsi, e sparisce
   // mentre corri (tocca le classi solo quando cambia)
@@ -18259,7 +18259,9 @@ function dinoSuono(nome) {
     g.connect(uscita);
     r.start(t + inizio);
   };
-  if (nome === "salto") {
+  if (BOSS_SUONI[nome]) {
+    BOSS_SUONI[nome](tono, campana, rumore); // i suoni del boss (boss.js)
+  } else if (nome === "salto") {
     tono(620, 980, 0, 0.09, 0.8);
   } else if (nome === "cento") {
     tono(1046, 1046, 0, 0.07, 0.7);
