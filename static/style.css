@@ -830,6 +830,10 @@ html.offline-mode .offline-cabinato::after,
 .offline-cabinato.finita .offline-cartello { opacity: 0.22; }
 /* il nome del potere appena preso prende il suo posto (app.js, dinoCartellone) */
 .offline-cabinato.annuncio .offline-cartello { opacity: 0; transition-duration: 0.12s; }
+/* tendina e minigioco del boss: la scritta sparisce (app.js, dinoDom) */
+.offline-cabinato.boss .offline-cartello { opacity: 0; transition-duration: 0.12s; }
+/* nel minigioco si trascina il dito: niente scroll né zoom (oltre al touchstart) */
+.offline-cabinato.boss .dino-campo { touch-action: none; }
 .offline-cartello svg {
   display: block;
   margin: 0 auto;
