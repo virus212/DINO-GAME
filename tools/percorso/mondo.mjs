@@ -57,11 +57,18 @@ export const regoleV402 = {
   },
 };
 
-export function genera({ seed = 1, durata = 150000, regole = regoleV402, ogni = 6000, v0 = 6 } = {}) {
+// boss (app.js, dinoBossPasso): ogni boss.ogni ms di corsa un boss. In attesa
+// niente oggetti (gli ostacoli sì), nello sgombro niente spawn finché la
+// strada non è vuota, poi il ritorno con la coda segnaposto lunga boss.ripresa
+// ms di strada. Le fasi da fermi (incontro, minigioco) non fanno fotogrammi.
+// boss.forza: il primo spawn dopo il ritorno è un oggetto (il caso peggiore)
+export function genera({ seed = 1, durata = 150000, regole = regoleV402, ogni = 6000, v0 = 6, boss = null } = {}) {
   const R = rng(seed);
   const g = { f: 0, corsa: 0, v: v0, ostacoli: [], storia: [], oggetto: null, oggetti: [], prossimoOggetto: 4000, ogni: () => ogni * (0.8 + R() * 0.4) };
   const fot = [];
   const N = Math.round(durata / F);
+  let b = null;
+  let prossimoBoss = boss ? boss.ogni : Infinity;
   for (let f = 0; f < N; f++) {
     g.f = f;
     g.v = Math.min(13, g.v + 0.001);
@@ -75,10 +82,18 @@ export function genera({ seed = 1, durata = 150000, regole = regoleV402, ogni = 
     g.ostacoli = g.ostacoli.filter((o) => o.x + o.w > -10);
     if (g.coda) g.coda.x -= g.coda.scarto ? (g.v + g.coda.scarto - 0.5) * K : dx;
     if (g.oggetto) { g.oggetto.x -= dx; if (g.oggetto.x + g.oggetto.w < -10) g.oggetto = null; }
-    if (g.corsa > 3000) {
+    if (!b && g.corsa >= prossimoBoss) b = { fase: 'attesa', corsa0: g.corsa };
+    if (b && b.fase === 'attesa' && !g.oggetto) b.fase = 'sgombro';
+    if (b && b.fase === 'sgombro' && !g.ostacoli.length && !g.oggetto) {
+      g.prossimoOggetto = boss.forza ? g.corsa : g.prossimoOggetto + g.corsa - b.corsa0;
+      g.coda = { x: W, w: 0, distacco: (boss.ripresa * (g.v - 0.5) * K) / F, scarto: 0 };
+      b = null;
+      prossimoBoss = g.corsa + boss.ogni;
+    }
+    if (g.corsa > 3000 && (!b || b.fase === 'attesa')) {
       const ultimo = regole.usaCoda ? g.coda : g.ostacoli[g.ostacoli.length - 1];
       if (!ultimo || ultimo.x + ultimo.w + ultimo.distacco < W) {
-        const r = regole.passo(g, R, ultimo);
+        const r = !b && regole.passo(g, R, ultimo);
         if (!r) nuovoOstacolo(g, R, regole.forza && regole.forza(g));
       }
     }
