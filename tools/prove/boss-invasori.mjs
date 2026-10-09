@@ -94,7 +94,7 @@ await page.evaluate(() => {
   const g = __dino.boss.gioco;
   g.vite = 1;
   g.prossimaBomba = 1e9;
-  g.bombe = [{ x: Math.round(g.x), y: INV_NAVE_Y - 2, zig: false }];
+  g.bombe = [{ tipo: "spirale", x: Math.round(g.x), y: INV_NAVE_Y - 2, eta: 0 }];
 });
 await scatta("esito", 400, "13-perso-raggio");
 await scatta("esito", 1250, "14-perso-scagliato");

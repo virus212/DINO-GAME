@@ -16392,6 +16392,12 @@ function dinoChiudiFinestra(id) {
 /** Morto contro `o`. La causa va nella schermata di fine; se c'erano le
  * finestre di Windows XP aperte, la colpa è loro. Una mina esplode davvero. */
 function dinoSchianto(o) {
+  // DEBUG boss: da togliere (il trucco «Immortale» del pannello Debug)
+  if (_dinoDebugImmortale) {
+    dinoDebugScampato(o);
+    return;
+  }
+  // /DEBUG boss
   const mina = o && (o.tipo === "mina" || o.tipo === "paracadute");
   if (o && o.tipo === "boss") dino.causa = "Battuto dal boss";
   else if (dino.virus) dino.causa = "Colpa di Windows XP";
@@ -18492,6 +18498,164 @@ function dinoSuono(nome) {
 // con gli sprite veri ingranditi di un numero intero di pixel veri (niente
 // celle sfocate o disuguali); la modalità scelta ha l'icona che corre. ——
 let _dinoMenuGiro = 0;
+// DEBUG boss: da togliere (Vitto 08/10, per provare tutto dal telefono). Il
+// pannello «Debug» del menu (#dinoDebug, index.html) ha un bottone per ogni
+// boss (BOSS_ORDINE), i trucchi (immortale, vinci/perdi il boss, veloce/
+// lento), ogni potere (OGGETTI), ogni cattivo (DINO_TIPI e l'icona di
+// Windows) e i punteggi appena sotto i fuochi (999/1999/2999):
+// data-debug="tipo:valore[:variante]", lo esegue dinoDebug
+let _dinoDebugImmortale = false; // lo legge dinoSchianto
+const DINO_DEBUG_LENTO = 2; // la velocità più bassa di «Lento»
+const DINO_DEBUG_NOMI = { piccolo: "Mixer", grande: "Cristalli", fantasma: "Fantasma", mina: "Mina", paracadute: "Paracadute" };
+function dinoDebugRiempi(menu) {
+  const griglia = menu.querySelector("#dinoDebug .dino-debug-griglia");
+  if (!griglia) return;
+  if (!griglia.childElementCount) {
+    const stile = "min-width:0;padding:7px 2px;border:1px solid rgba(255,122,42,.55);border-radius:8px;background:rgba(255,122,42,.14);color:#ffb27a;font:inherit;font-size:.66rem;font-weight:800;letter-spacing:.03em;line-height:1.15;text-transform:uppercase;white-space:normal;overflow-wrap:anywhere";
+    const cattivi = [];
+    for (const n of Object.keys(DINO_TIPI)) {
+      const nome = DINO_DEBUG_NOMI[n] || n;
+      // il fantasmino esce basso (si salta) o alto (si passa sotto): uno per verso
+      if (n === "fantasma") cattivi.push([`cattivo:${n}:basso`, `${nome} basso`], [`cattivo:${n}:alto`, `${nome} alto`]);
+      else cattivi.push([`cattivo:${n}`, nome]);
+    }
+    cattivi.push(["cattivo:virus", "Windows"]);
+    const gruppi = [
+      ["Boss", (typeof BOSS_ORDINE !== "undefined" ? BOSS_ORDINE : []).map((n) => [`boss:${n}`, BOSS_GIOCHI[n].titolo.replace(/!/g, "")])],
+      ["Trucchi", [["trucco:immortale", "Immortale"], ["trucco:vinci", "Vinci boss"], ["trucco:perdi", "Perdi boss"], ["trucco:veloce", "Veloce"], ["trucco:lento", "Lento"]]],
+      ["Poteri", Object.keys(OGGETTI).map((k) => [`potere:${k}`, OGGETTI[k].nome.replace(/!/g, "")])],
+      ["Cattivi", cattivi],
+      ["Punti", [999, 1999, 2999].map((v) => [`punti:${v}`, String(v)])],
+    ];
+    for (const [titolo, voci] of gruppi) {
+      const t = document.createElement("div");
+      t.textContent = titolo;
+      t.style.cssText = "grid-column:1/-1;margin-top:2px;font-size:.6rem;opacity:.75";
+      griglia.appendChild(t);
+      for (const [cosa, etichetta] of voci) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.debug = cosa;
+        btn.textContent = etichetta;
+        btn.style.cssText = stile;
+        griglia.appendChild(btn);
+      }
+    }
+  }
+  dinoDebugEtichette(menu);
+}
+/** L'interruttore «Immortale» dice com'è messo, e acceso si vede. */
+function dinoDebugEtichette(menu) {
+  const b = menu && menu.querySelector('[data-debug="trucco:immortale"]');
+  if (!b) return;
+  b.textContent = `Immortale: ${_dinoDebugImmortale ? "sì" : "no"}`;
+  b.setAttribute("aria-pressed", String(_dinoDebugImmortale));
+  b.style.background = _dinoDebugImmortale ? "rgba(255,122,42,.55)" : "rgba(255,122,42,.14)";
+  b.style.color = _dinoDebugImmortale ? "#1a0c02" : "#ffb27a";
+}
+/** In corsa (stesso schema di window.__dinoBoss in boss.js): dalla pausa
+ * riprende, altrimenti (se `nuova`) parte una partita nuova. */
+function dinoDebugCorsa(nuova) {
+  if (dino.stato === "corsa") return true;
+  if (dino.stato === "pausa") dino.stato = "corsa";
+  else if (nuova) {
+    dinoNuovaPartita();
+    dino.stato = "corsa";
+    dino.corsa = DINO_SGOMBRO; // via subito, senza i primi 3 s vuoti
+  } else return false;
+  dinoAvvia();
+  return true;
+}
+function dinoDebug(cosa) {
+  const [tipo, valore, variante] = cosa.split(":");
+  // l'interruttore lascia il menu aperto: si vede subito «sì/no»
+  if (cosa === "trucco:immortale") {
+    _dinoDebugImmortale = !_dinoDebugImmortale;
+    dinoDebugEtichette(document.getElementById("dinoMenu"));
+    return;
+  }
+  chiudiMenuDino();
+  // dopo l'uscita del menu (200 ms), sennò il primo tocco del minigioco
+  // cadrebbe sul foglio che sta scendendo
+  setTimeout(() => {
+    if (cosa === "trucco:vinci" || cosa === "trucco:perdi") {
+      // solo con un boss nel minigioco: l'esito lo legge dinoBossPasso
+      const b = dino.boss;
+      if (!b || b.fase !== "gioco") return;
+      dinoDebugCorsa(false);
+      b.esito = cosa === "trucco:vinci" ? "vinto" : "perso";
+      dinoBossFase(b, "esito");
+      return;
+    }
+    dinoDebugCorsa(true);
+    if (tipo === "boss") {
+      if (window.__dinoBoss) window.__dinoBoss(valore);
+    } else if (tipo === "potere") {
+      if (!OGGETTI[valore]) return;
+      dino.potere = null;
+      dinoPrendi({ tipo: valore, x: 0, w: 18, h: 24, sopra: 30 });
+    } else if (tipo === "cattivo") {
+      dinoDebugCattivo(valore, variante);
+    } else if (tipo === "punti") {
+      dino.punti = Number(valore) || 0;
+    } else if (cosa === "trucco:veloce") {
+      // oltre DINO_VEL_MAX il passo la riporterebbe giù da sola
+      dino.velocita = Math.min(DINO_VEL_MAX, dino.velocita + 2);
+    } else if (cosa === "trucco:lento") {
+      dino.velocita = Math.max(DINO_DEBUG_LENTO, dino.velocita - 2);
+    }
+  }, 220);
+}
+/** Il cattivo `tipo` subito al bordo destro (fuori schermo: arriva in 1-2 s),
+ * dopo quelli già in strada. dinoNuovoOstacolo sceglie a caso fra i tipi che
+ * modalità e velocità ammettono: per un attimo li ammette tutti e gli dà solo
+ * questo, poi tutto com'era. L'icona di Windows la fa qui, come lui. */
+function dinoDebugCattivo(tipo, variante) {
+  let o;
+  if (tipo === "virus") {
+    const minimo = Math.round(18 * dino.velocita + 150 * 0.6);
+    o = { tipo: "virus", x: dino.w + 10, w: VIRUS_SPRITE[0].length, h: VIRUS_SPRITE.length, sopra: VIRUS_SOPRA, fase: Math.random() * 6.28, distacco: (minimo + Math.random() * minimo * 0.5) * DINO_K };
+    dino.ostacoli.push(o);
+  } else {
+    if (!DINO_TIPI[tipo]) return;
+    const { modo, velocita } = dino;
+    dino.modo = "normale";
+    dino.velocita = Math.max(velocita, 9);
+    dino.storia = [];
+    try {
+      o = dinoNuovoOstacolo({ soli: [tipo], uno: true });
+    } finally {
+      dino.modo = modo;
+      dino.velocita = velocita;
+    }
+    if (!o) return;
+    if (tipo === "fantasma" && variante) o.sopra = variante === "alto" ? DINO_H + 14 : 4;
+  }
+  // quelli non ancora in vista gli lasciano il posto; da uno appena entrato
+  // sta al distacco minimo (distacco / 1,5), così arriva comunque in 1-2 s
+  dino.ostacoli = dino.ostacoli.filter((v) => v === o || v.x < dino.w);
+  const prima = dino.ostacoli.filter((v) => v !== o).reduce((m, v) => Math.max(m, v.x + v.w), -Infinity);
+  const minimo = o.distacco / 1.5;
+  if (prima + minimo > o.x) {
+    const d = prima + minimo - o.x;
+    o.x += d;
+    if (o.tipo === "paracadute") o.discesa = o.sopra / (o.sopra / o.discesa + d);
+  }
+  dino.coda = { x: o.x, w: o.w, distacco: o.distacco, scarto: o.scarto || 0 };
+  return o;
+}
+/** Immortale: niente morte. Il boss perso fa come se la sconfitta non
+ * uccidesse: la soglia del prossimo va avanti (sennò ritorna subito). */
+function dinoDebugScampato(o) {
+  if (!o || o.tipo !== "boss") return;
+  const m = dinoModo();
+  const ogni = m.boss ? m.boss.ogni : 1e12;
+  if (dino.prossimoBoss < 1e12) {
+    do dino.prossimoBoss += ogni;
+    while (dino.prossimoBoss <= dino.punti);
+  }
+}
+// /DEBUG boss
 let _dinoMenuPronto = false;
 
 /** Un <canvas> del menu da w × h unità, s pixel veri per unità. */
@@ -18561,6 +18725,167 @@ Object.entries(OGGETTI).forEach(([k, def]) => {
   DINO_ICONE[k] = [righe[0].length * cl, righe.length * cl, (c) => dinoPixel(c, righe, 0, 0, def.colori, cl)];
 });
 
+// i boss nella leggenda (fase 5): l'icona è lo sprite vero del minigioco
+// (boss.js e i suoi due file); se quel file non c'è o lo sprite ha cambiato
+// forma, uno di questi di riserva (celle da 1 unità, stessi colori)
+const DINO_LEG_GRANCHIO = ["..#.....#..", "...#...#...", "..#######..", ".##.###.##.", "###########", "#.#######.#", "#.#.....#.#", "...##.##..."];
+const DINO_LEG_SCIMMIONE = [
+  "....oooooo....",
+  "..ooBBBBBBoo..",
+  ".oBBBBBBBBBBo.",
+  "oBBBBBBBBBBBBo",
+  "oBffffBBffffBo",
+  "oBoooffffoooBo",
+  "oBfwweffewwfBo",
+  "oBffffccffffBo",
+  "oBfccoccoccfBo",
+  "oBcmmmmmmmmcBo",
+  ".oBmwmmmmwmBo.",
+  "..oBccccccBo..",
+  "...oooooooo...",
+];
+const DINO_LEG_SCIMMIONE_COLORI = { o: "#1c0a04", B: "#8a3a12", f: "#f2b27a", c: "#e89a5c", w: "#ffffff", e: "#141414", m: "#4a1206" };
+// il fantasma rosso, 14 x 14 come nel cabinato, che guarda a sinistra
+const DINO_LEG_FANTASMA = [
+  ".....####.....",
+  "...########...",
+  "..##########..",
+  ".##ww####ww##.",
+  ".#wwww##wwww#.",
+  ".#bbww##bbww#.",
+  "##bbww##bbww##",
+  "###ww####ww###",
+  "##############",
+  "##############",
+  "##############",
+  "##############",
+  "##.###..###.##",
+  "#...##..##...#",
+];
+const DINO_LEG_FANTASMA_COLORI = { "#": "#ff0000", w: "#ffffff", b: "#2121ff" };
+
+/** Uno sprite a 1 px per unità su una tela a parte, o null se il disegno
+ * fallisce o resta vuoto (un file dei boss mancante o cambiato). */
+function dinoLegTela(w, h, disegna) {
+  if (!(w > 0 && h > 0 && w <= 64 && h <= 64)) return null;
+  const tela = document.createElement("canvas");
+  tela.width = w;
+  tela.height = h;
+  const c = tela.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  try {
+    disegna(c);
+    const d = c.getImageData(0, 0, w, h).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i]) return tela;
+  } catch (_) {}
+  return null;
+}
+const _dinoIconeBoss = new Map();
+/** L'icona di un boss, [w, h, disegno] come DINO_ICONE: l'alieno granchio
+ * che arriva sulla strada (nel colore del cartellone), lo scimmione, il
+ * fantasma rosso; di riserva quelli qui sopra. */
+function dinoIconaBoss(tipo) {
+  if (_dinoIconeBoss.has(tipo)) return _dinoIconeBoss.get(tipo);
+  const gioco = typeof BOSS_GIOCHI !== "undefined" && BOSS_GIOCHI[tipo];
+  const colore = (gioco && gioco.colore) || "#ff8c33";
+  // righe valide: stringhe tutte lunghe uguali
+  const valide = (r) => (Array.isArray(r) && r.length && typeof r[0] === "string" && r.every((x) => typeof x === "string" && x.length === r[0].length) ? r : null);
+  const sprite = (r, colori) => (r ? dinoLegTela(r[0].length, r.length, (c) => dinoPixel(c, r, 0, 0, colori, 1)) : null);
+  let tela = null;
+  try {
+    if (tipo === "invasori" && typeof INV_GRANCHIO !== "undefined") tela = sprite(valide(INV_GRANCHIO[0]), { "#": colore });
+    if (tipo === "scimmione" && typeof SC_SCIMMIA !== "undefined" && typeof SC_SCIMMIA_COLORI !== "undefined") tela = sprite(valide(SC_SCIMMIA[0]), SC_SCIMMIA_COLORI);
+    if (tipo === "labirinto" && typeof LAB_FANT !== "undefined" && typeof labFantasma === "function") {
+      const r = valide(LAB_FANT[0]);
+      const rosso = (typeof LAB_FANTASMI !== "undefined" && LAB_FANTASMI[0] && LAB_FANTASMI[0].colore) || "#ff0000";
+      const sx = typeof LAB_SINISTRA !== "undefined" ? LAB_SINISTRA : 1;
+      if (r) tela = dinoLegTela(r[0].length, r.length, (c) => labFantasma(c, 0, 0, { colore: rosso, dir: sx }, 0, 1));
+    }
+  } catch (_) {
+    tela = null;
+  }
+  if (!tela) {
+    const riserva = { invasori: [DINO_LEG_GRANCHIO, { "#": colore }], scimmione: [DINO_LEG_SCIMMIONE, DINO_LEG_SCIMMIONE_COLORI], labirinto: [DINO_LEG_FANTASMA, DINO_LEG_FANTASMA_COLORI] }[tipo];
+    if (riserva) tela = sprite(riserva[0], riserva[1]);
+  }
+  const ic = tela ? [tela.width, tela.height, (c) => c.drawImage(tela, 0, 0)] : null;
+  _dinoIconeBoss.set(tipo, ic);
+  return ic;
+}
+
+/** Le righe dei boss coi valori veri: nell'ordine di BOSS_ORDINE (badge 1°,
+ * 2°, 3°), nome e colore del cartellone, i numeri del labirinto se il suo
+ * file li ha, e la nota da DINO_MODI[modo].boss, BOSS_PREMIO, BOSS_REGALO e
+ * BOSS_SCONFITTA (mai nomi dei giochi originali). */
+function dinoMenuBoss(menu) {
+  const ul = menu.querySelector(".dino-leg-boss");
+  if (!ul || typeof BOSS_ORDINE === "undefined") return;
+  BOSS_ORDINE.forEach((tipo, i) => {
+    const li = ul.querySelector(`li[data-boss="${tipo}"]`);
+    if (!li) return;
+    ul.appendChild(li);
+    const g = BOSS_GIOCHI[tipo] || {};
+    if (g.titolo) li.querySelector("b").textContent = g.titolo.replace(/!/g, "").trim();
+    if (g.colore) li.style.setProperty("--c", g.colore);
+    const em = li.querySelector("em");
+    if (em) em.textContent = `${i + 1}°`;
+  });
+  ul.querySelectorAll("li[data-boss]").forEach((li) => {
+    if (!BOSS_ORDINE.includes(li.dataset.boss)) li.remove();
+  });
+  const lab = ul.querySelector('li[data-boss="labirinto"] span');
+  if (lab && typeof LAB_PUNTINI === "number" && typeof LAB_RESISTE === "number") lab.textContent = `Mangia ${LAB_PUNTINI} puntini o resisti ${Math.round(LAB_RESISTE / 1000)} secondi.`;
+  const nota = menu.querySelector(".dino-leg-nota");
+  if (!nota) return;
+  const quando = (b) => (b.primo === b.ogni ? `ogni ${b.ogni} punti` : `a ${b.primo} punti, poi ogni ${b.ogni}`);
+  const altri = Object.entries(DINO_MODI).filter(([k, m]) => k !== "normale" && m.boss);
+  const senza = Object.values(DINO_MODI).filter((m) => !m.boss).map((m) => m.nome);
+  const regali = { scaglia: "Godzilla", stella: "la Stella", cuffie: "lo Scudo", basso: "il Boombox", jetpack: "il Jetpack", pozione: "Mini" };
+  const regalo = BOSS_REGALO && OGGETTI[BOSS_REGALO] ? ` e ${regali[BOSS_REGALO] || OGGETTI[BOSS_REGALO].nome.replace(/!/g, "")}` : "";
+  const persa = BOSS_SCONFITTA === "muori" ? "game over" : BOSS_PENALITA ? `si riparte con ${BOSS_PENALITA} punti in meno` : "si riparte";
+  const n = DINO_MODI.normale.boss;
+  const prima = n ? `Arrivano ${quando(n)}${altri.length ? ` (${altri.map(([, m]) => `${m.nome.replace(/ mode$/i, "")}: ${quando(m.boss).replace(/ punti$/, "")}`).join("; ")})` : ""}, in quest'ordine. ` : "";
+  const pezzi = [[prima], ["Vinci:", "vinci"], [` +${BOSS_PREMIO}${regalo}. `], ["Perdi:", "perdi"], [` ${persa}.`], senza.length ? [` In ${senza.join(" e ")} niente boss.`] : null];
+  nota.textContent = "";
+  pezzi.filter(Boolean).forEach(([testo, classe]) => {
+    if (!classe) return nota.appendChild(document.createTextNode(testo));
+    const b = document.createElement("b");
+    b.className = classe;
+    b.textContent = testo;
+    nota.appendChild(b);
+  });
+}
+
+/** A schermo intero (orizzontale e basso) il foglio ha le righe compatte. La
+ * prima volta si mette in ascolto: girando il telefono a foglio aperto,
+ * icone e scenette si rifanno della misura giusta. */
+let _dinoMenuMq = null;
+function dinoMenuOrizzontale() {
+  if (!window.matchMedia) return false;
+  if (!_dinoMenuMq) {
+    _dinoMenuMq = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
+    const gira = () => {
+      const m = document.getElementById("dinoMenu");
+      if (m && dinoMenuAperto()) dinoMenuRiempi(m);
+    };
+    if (_dinoMenuMq.addEventListener) _dinoMenuMq.addEventListener("change", gira);
+    else if (_dinoMenuMq.addListener) _dinoMenuMq.addListener(gira);
+  }
+  return _dinoMenuMq.matches;
+}
+/** Le icone della leggenda (sprite veri e boss) a celle intere: in un
+ * quadrato da 40 px, 34 a schermo intero; rifatte solo se la misura cambia. */
+function dinoMenuIcone(menu) {
+  const lato = dinoMenuOrizzontale() ? 34 : 40;
+  if (menu.dataset.lato === String(lato)) return;
+  menu.dataset.lato = String(lato);
+  menu.querySelectorAll(".dino-leg li[data-icona], .dino-leg li[data-boss]").forEach((li) => {
+    const ic = li.dataset.boss ? dinoIconaBoss(li.dataset.boss) : DINO_ICONE[li.dataset.icona];
+    const cv = li.querySelector("canvas");
+    if (ic && cv) dinoMenuTela(cv, ic[0], ic[1], dinoMenuScala(ic[0], ic[1], lato), ic[2]);
+  });
+}
+
 // le tre modalità: una scenetta ciascuna (posa = passo della corsa)
 const DINO_ICONE_MODI = {
   normale: {
@@ -18613,14 +18938,12 @@ function dinoMenuRiempi(menu) {
     _dinoMenuPronto = true;
     menu.querySelectorAll("canvas.dino-px").forEach((cv) => dinoMenuScritta(cv, cv.dataset.px, cv.dataset.colore, Number(cv.dataset.cella) || 2));
     menu.querySelectorAll(".dino-leg li[data-icona]").forEach((li) => {
-      const ic = DINO_ICONE[li.dataset.icona];
-      const cv = li.querySelector("canvas");
-      if (!ic || !cv) return;
-      dinoMenuTela(cv, ic[0], ic[1], dinoMenuScala(ic[0], ic[1], 40), ic[2]);
       const def = OGGETTI[li.dataset.icona];
       if (def) li.style.setProperty("--c", def.colore);
     });
+    dinoMenuBoss(menu);
   }
+  dinoMenuIcone(menu);
   const pad = (n) => String(n).padStart(5, "0");
   menu.querySelectorAll(".dino-modo").forEach((b) => {
     let r = 0;
@@ -18650,6 +18973,7 @@ function apriMenuDino() {
   if (!menu) return;
   if (dino.stato === "corsa") dino.stato = "pausa";
   dinoMenuRiempi(menu);
+  dinoDebugRiempi(menu); // DEBUG boss: da togliere
   dinoMenuScheda(menu, "modi");
   menu.querySelectorAll(".dino-menu-corpo, .dino-menu-col").forEach((el) => (el.scrollTop = 0));
   menu.classList.remove("hidden", "esce");
@@ -18716,6 +19040,12 @@ function collegaMenuDino() {
     const modo = e.target.closest(".dino-modo");
     if (modo) {
       dinoImpostaModo(modo.dataset.modo);
+      return;
+    }
+    // DEBUG boss: da togliere (il contenitore #dinoDebug ha data-debug vuoto)
+    const debug = e.target.closest("[data-debug]");
+    if (debug) {
+      if (debug.dataset.debug) dinoDebug(debug.dataset.debug);
       return;
     }
     if (e.target.closest("[data-chiudi]")) chiudiMenuDino();

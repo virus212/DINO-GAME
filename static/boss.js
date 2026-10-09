@@ -190,6 +190,28 @@ const BOSS_SEGNAPOSTO = {
 const INV_W = 224;
 const INV_H = 150;
 const INV_TICK = 1000 / 60; // passo fisso: uguale a 60 e a 120 Hz
+// Safari dà i tempi dei fotogrammi arrotondati al ms (16, 17, 17...): col
+// passo fisso secco certi fotogrammi facevano 0 tick e altri 2, e astronave,
+// colpi e disco andavano a scatti. Con questa tolleranza a 60 Hz è sempre
+// uno per fotogramma (il resto può andare un filo sotto zero: in media il
+// tempo resta giusto)
+const INV_TOLLERA = 2.5;
+// il dino insegue il dito: dritto sotto il dito finché il dito non corre più
+// di INV_VEL_DITO unità a tick (oltre, ci arriva in scivolata). Il cannone
+// originale fa 1 unità al fotogramma, ma col dito sul vetro la lentezza si
+// sente come ritardo; con le frecce resta un cannone (INV_VEL_TASTI)
+const INV_VEL_DITO = 3.5;
+const INV_VEL_TASTI = 2;
+// regole e ritmo (bilanciati col simulatore: un giocatore normale vince in
+// 30-45 s e perde ogni tanto, mai senza colpa)
+const INV_VITE = 2; // Vitto 08/10
+const INV_RICARICA = 120; // ms fra un colpo del dino finito e il prossimo
+const INV_VEL_COLPO = 5; // unità a tick del colpo del dino (lungo 4, a passi di 5: nessun alieno alto 8 si salta)
+const INV_BOMBA_OGNI = 1600; // ms fra due colpi alieni all'inizio...
+const INV_BOMBA_MIN = 950; // ...e al più fitto (scende coi punti fatti)
+const INV_SCOPPIO_DURA = 270; // ms dell'alieno che esplode (la marcia aspetta)
+const INV_ESPLODE = 1000; // ms del dino colpito che esplode (tutto fermo)
+const INV_INVULNERABILE = 900; // ms di lampeggio dopo, senza farsi male
 const INV_COLONNE = 8;
 const INV_RIGHE = 4;
 const INV_PASSO_X = 16; // passo della griglia della formazione
@@ -219,6 +241,31 @@ const INV_TIPI = [
 ];
 const INV_DISCO = [".....######.....", "...##########...", "..############..", ".##.##.##.##.##.", "################", "..###..##..###..", "...#........#..."];
 const INV_SCOPPIO = ["....#...#....", ".#...#.#...#.", "..#.......#..", "...#.....#...", "##.........##", "...#.....#...", "..#.#...#.#..", ".#...#.#...#."];
+// i tre colpi degli alieni, come nel cabinato (3 x 7, quattro pose che
+// girano mentre cadono): la spirale (mira al dino), il pistone dritto con la
+// traversa che scorre e lo zig zag. Al massimo uno per tipo in volo
+const INV_COLPI = {
+  spirale: [0, 1, 2, 3].map((f) => Array.from({ length: 7 }, (_, r) => ["##.", ".#.", ".##", ".#."][(r + f) % 4])),
+  pistone: [0, 1, 2, 3].map((f) => Array.from({ length: 7 }, (_, r) => (r === 6 - 2 * f || (f === 3 && r === 0) ? "###" : ".#."))),
+  zigzag: [0, 1, 2, 3].map((f) => Array.from({ length: 7 }, (_, r) => ["#..", ".#.", "..#", ".#."][(r + f) % 4])),
+};
+const INV_COLPI_ORDINE = ["spirale", "pistone", "zigzag"];
+// lo schizzo del colpo alieno che arriva (sui bunker, sul terreno) e il
+// botto del colpo del dino (in cima, contro un colpo, sotto un bunker): sono
+// anche la forma del morso che lasciano nei bunker, come nell'originale
+const INV_SCHIZZO = ["#..#..", "..#..#", ".####.", "######", ".####.", "#.##.#", "..#...", ".#..#."];
+const INV_BOTTO = ["#..#...#", "..#..#..", "#.####.#", ".######.", "#######.", ".#####.#", "#.#.##..", "..#..#.#"];
+// il morso del colpo del dino da sotto un bunker: stretto, così sparando da
+// solo apre una feritoia (come nel cabinato) e non si mangia il riparo
+const INV_FORO = ["#.#", "###", "###", ".#."];
+// il dino colpito: l'astronave in pezzi, due pose che si alternano
+const INV_ROTTA = [
+  ["....#....#....#...", ".#....#.....#...#.", "...#..#####..#....", ".....#######..#...", "..#.ooggggoo.#....", ".oogyggg.gyggoo...", "ooggg..ggggggggo.#", ".ooo.oooo..ooo...."],
+  ["..#....#...#....#.", "....#.....#..#....", ".#....#####.....#.", "...#.#######.#....", "....ooggggoo...#..", "..oogggyg.gggoo...", "#.oggggggg..gggoo.", "...oooo..oooo.oo.."],
+];
+// il punteggio misterioso del disco: dipende da quanti colpi hai sparato,
+// con la tabella del cabinato (il 23° colpo e poi ogni 15 valgono 300)
+const INV_MISTERO = [100, 50, 50, 100, 150, 100, 100, 50, 300, 100, 100, 100, 50, 150, 100];
 // il bunker classico, 22 x 16, con l'arco sotto
 const INV_BUNKER = [
   "....##############....",
@@ -252,14 +299,21 @@ const INV_NAVE = [
 ];
 INV_NAVE.push(INV_NAVE[0].map((r, i) => (i === 12 ? ".....AA....AA....." : r))); // fiamme che pulsano
 const INV_NAVE_COLORI = { "#": "#ff6a00", e: "#141414", d: "#8f3200", o: "#2a1a12", w: "#bfe9ff", g: "#c9c9ce", y: "#ffd23f", l: "#ff6a00", a: "#ffb066", A: "#ffd23f" };
-// i simboli della parolaccia nel fumetto dell'alieno (3 x 5, celle da 2)
+// una vita in alto a destra: il dino sulla sua astronave in piccolo (11 x 7;
+// prima era il solo disco grigio e si confondeva col disco del bonus)
+const INV_VITA = ["......###..", ".....##e##.", ".....####..", "....####...", "..ooooooo..", ".ogylgylgo.", "..ooooooo.."];
+// i simboli della parolaccia nel fumetto dell'alieno (5 x 7 come le lettere
+// grandi, celle da 2: prima a 3 x 5 non si leggevano)
 const INV_PAROLACCIA = {
-  "#": ["#.#", "###", "#.#", "###", "#.#"],
-  "@": [".###.", "#...#", "#.###", "#.##.", ".##.."],
-  "%": ["#.#", "..#", ".#.", "#..", "#.#"],
-  "&": [".#.", "#.#", ".#.", "#.#", ".##"],
-  "!": ["#", "#", "#", ".", "#"],
+  "#": [".#.#.", ".#.#.", "#####", ".#.#.", "#####", ".#.#.", ".#.#."],
+  "@": [".###.", "#...#", "#.###", "#.#.#", "#.###", "#....", ".###."],
+  $: ["..#..", ".####", "#.#..", ".###.", "..#.#", "####.", "..#.."],
+  "%": ["##...", "##..#", "...#.", "..#..", ".#...", "#..##", "...##"],
+  "&": [".##..", "#..#.", "#.#..", ".#...", "#.#.#", "#..#.", ".##.#"],
+  "!": ["##", "##", "##", "##", "##", "..", "##"],
 };
+// la vena della rabbia accanto alla testa dell'alieno, da fumetto (celle da 2)
+const INV_RABBIA = [".#.#.", "##.##", ".....", "##.##", ".#.#."];
 const INV_ALIENO_SCALA = 4; // l'alieno sulla strada: il granchio a celle da 4
 
 /** Generatore a caso con seme (mulberry32): livelli ripetibili nelle prove
@@ -298,17 +352,24 @@ function invNuovo(livello) {
     fy: INV_CIMA,
     dir: 1,
     prossimoPasso: 600, // un attimo prima di partire
+    ferma: 0, // ms di marcia ferma: l'alieno colpito che esplode (come nel cabinato)
     posa: 0,
     nota: 0,
     colpo: null,
     ricarica: 400,
+    spari: 0, // colpi sparati: decidono il punteggio misterioso del disco
     bombe: [],
-    prossimaBomba: 1400,
+    prossimaBomba: 1200,
+    turno: 0, // a chi tocca sparare fra spirale, pistone e zig zag
     disco: null,
     prossimoDisco: 9000 + caso() * 5000,
+    ronzio: 0,
     bunker,
+    terra: new Uint8Array(INV_W).fill(1), // la riga del terreno, bucata dai colpi
+    telaTerra: null,
     x: INV_W / 2,
-    vite: 2,
+    vite: INV_VITE,
+    esplode: 0, // ms: il dino colpito esplode e tutto si ferma
     invulnerabile: 0,
     scoppi: [],
     punti: 0,
@@ -326,26 +387,25 @@ function invAlieno(g, a) {
   return { x: g.fx + a.c * INV_PASSO_X + Math.floor((12 - w) / 2), y: g.fy + a.r * INV_PASSO_Y, w, h: 8 };
 }
 
-/** Un colpo che tocca un bunker lo sbriciola attorno al punto (r unità). */
-function invSbriciola(g, px, py, r) {
+/** Un colpo che arriva su un bunker ci lascia il morso con la forma della
+ * sua esplosione (maschera centrata in px, py), come nel cabinato. */
+function invSbriciola(g, px, py, maschera) {
+  const mw = maschera[0].length;
+  const mh = maschera.length;
   for (const b of g.bunker) {
-    const lx = Math.floor(px - b.x);
-    const ly = Math.floor(py - INV_BUNKER_Y);
-    if (lx < -r || lx >= 22 + r || ly < -r || ly >= 16 + r) continue;
-    let pieno = false;
-    for (let y = ly - r; y <= ly + r; y++) {
-      for (let x = lx - r; x <= lx + r; x++) {
-        if (x < 0 || x >= 22 || y < 0 || y >= 16) continue;
-        if (b.griglia[y * 22 + x] && (x === lx || y === ly || g.caso() < 0.6)) {
-          b.griglia[y * 22 + x] = 0;
-          pieno = true;
-          if (b.tela) b.tela.getContext("2d").clearRect(x, y, 1, 1);
-        }
-      }
-    }
-    if (pieno) return true;
+    const lx = Math.round(px - b.x - mw / 2);
+    const ly = Math.round(py - INV_BUNKER_Y - mh / 2);
+    if (lx + mw <= 0 || lx >= 22 || ly + mh <= 0 || ly >= 16) continue;
+    maschera.forEach((riga, my) =>
+      [...riga].forEach((ch, mx) => {
+        const x = lx + mx;
+        const y = ly + my;
+        if (ch !== "#" || x < 0 || x >= 22 || y < 0 || y >= 16 || !b.griglia[y * 22 + x]) return;
+        b.griglia[y * 22 + x] = 0;
+        if (b.tela) b.tela.getContext("2d").clearRect(x, y, 1, 1);
+      }),
+    );
   }
-  return false;
 }
 /** C'è bunker in quel punto? */
 function invBunker(g, px, py) {
@@ -357,145 +417,195 @@ function invBunker(g, px, py) {
   return false;
 }
 
+/** La marcia: un passo di 2 unità, sempre più svelta man mano che calano;
+ * al bordo scende di 8 e torna indietro. Le quattro note, a giro. */
+function invMarcia(g, vivi) {
+  g.prossimoPasso = (40 + vivi.length * 7) * (g.liv ? 0.75 : 1);
+  let minX = 1e9;
+  let maxX = -1e9;
+  vivi.forEach((a) => {
+    const r = invAlieno(g, a);
+    minX = Math.min(minX, r.x);
+    maxX = Math.max(maxX, r.x + r.w);
+  });
+  if ((g.dir > 0 && maxX + 2 > INV_W - 2) || (g.dir < 0 && minX - 2 < 2)) {
+    g.fy += 8;
+    g.dir = -g.dir;
+  } else g.fx += 2 * g.dir;
+  g.posa ^= 1;
+  g.nota = (g.nota + 1) % 4;
+  dinoSuono(`inv_passo${g.nota + 1}`);
+  // arrivati ai bunker: hanno vinto loro
+  if (vivi.some((a) => invAlieno(g, a).y + 8 >= INV_BUNKER_Y)) {
+    g.esito = "perso";
+    g.fine = g.t + 400;
+    dinoVibra("HEAVY");
+  }
+}
+
+/** Il colpo del dino: sale di 4 a tick; alieno, disco, colpo alieno, bunker
+ * o il cielo in cima (dove esplode, come nel cabinato). */
+function invColpo(g, vivi) {
+  const c = g.colpo;
+  c.y -= INV_VEL_COLPO;
+  let fatto = false;
+  for (const a of vivi) {
+    const r = invAlieno(g, a);
+    if (c.x >= r.x && c.x < r.x + r.w && c.y < r.y + r.h && c.y + 4 > r.y) {
+      a.vivo = false;
+      g.punti += INV_TIPI[a.r].punti;
+      g.scoppi.push({ x: r.x + r.w / 2, y: r.y + 4, t: g.t, dura: INV_SCOPPIO_DURA, colore: INV_TIPI[a.r].colore });
+      g.ferma = INV_SCOPPIO_DURA; // la formazione aspetta che l'alieno finisca di esplodere
+      dinoSuono("inv_scoppio");
+      fatto = true;
+      break;
+    }
+  }
+  if (!fatto && g.disco && c.x >= g.disco.x && c.x < g.disco.x + 16 && c.y < 21) {
+    const punti = INV_MISTERO[g.spari % INV_MISTERO.length];
+    g.punti += punti;
+    g.scoppi.push({ x: g.disco.x + 8, y: 17, t: g.t, dura: 1300, punti, disco: true });
+    g.disco = null;
+    dinoSuono("inv_disco_preso");
+    dinoVibra("MEDIUM");
+    fatto = true;
+  }
+  if (!fatto) {
+    const i = g.bombe.findIndex((b) => Math.abs(b.x - c.x) <= 1 && b.y + 7 > c.y && b.y < c.y + 4);
+    if (i >= 0) {
+      g.scoppi.push({ x: c.x, y: c.y, t: g.t, dura: 220, botto: true, colore: "#f4f4f5" });
+      g.bombe.splice(i, 1);
+      fatto = true;
+    }
+  }
+  if (!fatto && invBunker(g, c.x, c.y)) {
+    invSbriciola(g, c.x, c.y, INV_FORO);
+    g.scoppi.push({ x: c.x, y: c.y + 2, t: g.t, dura: 120, botto: true, colore: "#ffd23f" });
+    fatto = true;
+  }
+  if (!fatto && c.y < 12) {
+    g.scoppi.push({ x: c.x, y: 13, t: g.t, dura: 220, botto: true, colore: "#ff5f3a" });
+    fatto = true;
+  }
+  if (fatto) {
+    g.colpo = null;
+    g.ricarica = INV_RICARICA;
+  }
+}
+
+/** Un colpo alieno nuovo: tocca a spirale, pistone e zig zag a turno, uno
+ * per tipo in volo. La spirale parte dalla colonna sopra il dino; il pistone
+ * no se è rimasto un alieno solo, lo zig zag no col disco in volo (nel
+ * cabinato usano lo stesso posto). */
+function invSparaAlieni(g, vivi) {
+  const tipo = INV_COLPI_ORDINE[g.turno++ % 3];
+  if (g.bombe.some((b) => b.tipo === tipo)) return;
+  if ((tipo === "pistone" && vivi.length < 2) || (tipo === "zigzag" && g.disco)) return;
+  const fondo = {};
+  vivi.forEach((a) => {
+    if (!fondo[a.c] || fondo[a.c].r < a.r) fondo[a.c] = a;
+  });
+  const colonne = Object.values(fondo);
+  const centro = (a) => {
+    const r = invAlieno(g, a);
+    return r.x + r.w / 2;
+  };
+  const chi = tipo === "spirale" ? colonne.reduce((m, a) => (Math.abs(centro(a) - g.x) < Math.abs(centro(m) - g.x) ? a : m)) : colonne[Math.floor(g.caso() * colonne.length)];
+  const r = invAlieno(g, chi);
+  g.bombe.push({ tipo, x: Math.round(r.x + r.w / 2), y: r.y + r.h, eta: 0 });
+}
+
 /** Un passo fisso da 1/60 s. */
 function invTick(g) {
   const ms = INV_TICK;
   g.t += ms;
-  const vivi = g.alieni.filter((a) => a.vivo);
   if (g.fine) return;
-  // la marcia: un passo di 2 unità, sempre più svelta man mano che calano;
-  // al bordo scende di 8 e torna indietro. Le quattro note, a giro
-  g.prossimoPasso -= ms;
-  if (g.prossimoPasso <= 0 && vivi.length) {
-    g.prossimoPasso = (40 + vivi.length * 7) * (g.liv ? 0.75 : 1);
-    let minX = 1e9;
-    let maxX = -1e9;
-    vivi.forEach((a) => {
-      const r = invAlieno(g, a);
-      minX = Math.min(minX, r.x);
-      maxX = Math.max(maxX, r.x + r.w);
-    });
-    if ((g.dir > 0 && maxX + 2 > INV_W - 2) || (g.dir < 0 && minX - 2 < 2)) {
-      g.fy += 8;
-      g.dir = -g.dir;
-    } else g.fx += 2 * g.dir;
-    g.posa ^= 1;
-    g.nota = (g.nota + 1) % 4;
-    dinoSuono(`inv_passo${g.nota + 1}`);
-    // arrivati ai bunker: hanno vinto loro
-    if (vivi.some((a) => { const r = invAlieno(g, a); return r.y + r.h >= INV_BUNKER_Y; })) {
-      g.esito = "perso";
-      g.fine = g.t + 400;
-      dinoVibra("HEAVY");
-      return;
-    }
+  const vivi = g.alieni.filter((a) => a.vivo);
+  // il dino colpito esplode: tutto fermo (la marcia, i colpi), come nel cabinato
+  if (g.esplode > 0) {
+    g.esplode -= ms;
+    if (g.esplode <= 0) g.invulnerabile = INV_INVULNERABILE;
+    g.scoppi = g.scoppi.filter((s) => g.t - s.t < s.dura);
+    return;
   }
-  // il dino segue il dito (o le frecce), a velocità da cannone
-  let verso = 0;
-  if (g.dito) verso = Math.abs(g.dito.x - g.x) < 1.2 ? 0 : Math.sign(g.dito.x - g.x);
-  else verso = (g.tasti.destra ? 1 : 0) - (g.tasti.sinistra ? 1 : 0);
-  g.x = Math.max(10, Math.min(INV_W - 10, g.x + verso * 1.6));
+  g.ferma = Math.max(0, g.ferma - ms);
+  if (!g.ferma) g.prossimoPasso -= ms;
+  if (g.prossimoPasso <= 0 && vivi.length) {
+    invMarcia(g, vivi);
+    if (g.fine) return;
+  }
+  // il dino segue il dito (senza ritardo fino a INV_VEL_DITO) o le frecce
+  if (g.dito) g.x += Math.max(-INV_VEL_DITO, Math.min(INV_VEL_DITO, g.dito.x - g.x));
+  else g.x += ((g.tasti.destra ? 1 : 0) - (g.tasti.sinistra ? 1 : 0)) * INV_VEL_TASTI;
+  g.x = Math.max(10, Math.min(INV_W - 10, g.x));
   g.invulnerabile = Math.max(0, g.invulnerabile - ms);
   // spara da solo: un colpo alla volta, come nell'originale
   g.ricarica -= ms;
-  if (!g.colpo && g.ricarica <= 0 && g.vite > 0) {
+  if (!g.colpo && g.ricarica <= 0) {
     g.colpo = { x: Math.round(g.x), y: INV_NAVE_Y - 2 };
+    g.spari++;
     dinoSuono("inv_sparo");
   }
-  if (g.colpo) {
-    const c = g.colpo;
-    c.y -= 4;
-    let preso = false;
-    for (const a of vivi) {
-      const r = invAlieno(g, a);
-      if (c.x >= r.x && c.x < r.x + r.w && c.y < r.y + r.h && c.y + 4 > r.y) {
-        a.vivo = false;
-        g.punti += INV_TIPI[a.r].punti;
-        g.scoppi.push({ x: r.x + r.w / 2, y: r.y + 4, t: g.t });
-        dinoSuono("inv_scoppio");
-        preso = true;
-        break;
-      }
-    }
-    if (!preso && g.disco && c.x >= g.disco.x && c.x < g.disco.x + 16 && c.y < 21) {
-      g.punti += 100;
-      g.scoppi.push({ x: g.disco.x + 8, y: 17, t: g.t, punti: 100 });
-      g.disco = null;
-      dinoSuono("inv_scoppio");
-      preso = true;
-    }
-    if (!preso) {
-      const i = g.bombe.findIndex((b) => Math.abs(b.x - c.x) < 2 && b.y + 4 > c.y && b.y < c.y + 4);
-      if (i >= 0) {
-        g.bombe.splice(i, 1);
-        preso = true;
-      }
-    }
-    if (!preso && invBunker(g, c.x, c.y)) preso = invSbriciola(g, c.x, c.y, 1) || true;
-    if (preso || c.y < 10) {
-      g.colpo = null;
-      g.ricarica = 200;
-    }
-  }
-  // le bombe: dagli alieni più in basso, spesso da quello sopra al dino
+  if (g.colpo) invColpo(g, vivi);
+  // i colpi degli alieni, sempre più fitti man mano che fai punti
   g.prossimaBomba -= ms;
   if (g.prossimaBomba <= 0 && vivi.length) {
-    g.prossimaBomba = (g.liv ? 650 : 900) + g.caso() * 500;
-    if (g.bombe.length < (g.liv ? 4 : 3)) {
-      const fondo = {};
-      vivi.forEach((a) => {
-        if (!fondo[a.c] || fondo[a.c].r < a.r) fondo[a.c] = a;
-      });
-      const colonne = Object.values(fondo);
-      let chi = colonne[Math.floor(g.caso() * colonne.length)];
-      if (g.caso() < 0.5) {
-        chi = colonne.reduce((m, a) => {
-          const r = invAlieno(g, a);
-          const mr = invAlieno(g, m);
-          return Math.abs(r.x + r.w / 2 - g.x) < Math.abs(mr.x + mr.w / 2 - g.x) ? a : m;
-        });
-      }
-      const r = invAlieno(g, chi);
-      g.bombe.push({ x: Math.round(r.x + r.w / 2), y: r.y + r.h, zig: g.caso() < 0.4 });
-    }
+    g.prossimaBomba = Math.max(INV_BOMBA_MIN, INV_BOMBA_OGNI - g.punti * 0.5) * (g.liv ? 0.8 : 1);
+    invSparaAlieni(g, vivi);
   }
-  const vb = 1 + 0.25 * g.liv;
+  // cadono (più svelti con 8 alieni o meno, come nel cabinato)
+  const vb = (vivi.length <= 8 ? 1.25 : 1) * (g.liv ? 1.2 : 1);
   g.bombe = g.bombe.filter((b) => {
     b.y += vb;
-    if (b.y > INV_TERRA - 4) return false;
-    if (invBunker(g, b.x, b.y + 4)) {
-      invSbriciola(g, b.x, b.y + 4, 2);
+    b.eta++;
+    const punta = b.y + 7;
+    if (invBunker(g, b.x, punta) || invBunker(g, b.x, punta - 1)) {
+      invSbriciola(g, b.x, punta + 1, INV_SCHIZZO);
+      g.scoppi.push({ x: b.x, y: punta, t: g.t, dura: 200, colore: "#f4f4f5" });
       return false;
     }
-    // il dino: la sua astronave e la testa
-    if (g.invulnerabile <= 0 && g.vite > 0 && Math.abs(b.x - g.x) < 8 && b.y + 4 >= INV_NAVE_Y + 2 && b.y < INV_NAVE_Y + 12) {
+    if (punta >= INV_TERRA) {
+      // il terreno si buca dove arriva
+      for (let x = b.x - 2; x <= b.x + 2; x++) if (x >= 0 && x < INV_W && (Math.abs(x - b.x) < 2 || g.caso() < 0.5)) g.terra[x] = 0;
+      g.terraCambiata = true;
+      g.scoppi.push({ x: b.x, y: INV_TERRA - 4, t: g.t, dura: 200, colore: "#f4f4f5" });
+      return false;
+    }
+    // il dino: la testa e l'astronave (un filo di margine a favore)
+    if (g.invulnerabile <= 0 && Math.abs(b.x - g.x) <= 5 && punta >= INV_NAVE_Y && b.y <= INV_NAVE_Y + 8) {
       g.vite--;
-      g.scoppi.push({ x: g.x, y: INV_NAVE_Y + 6, t: g.t, grande: true });
+      g.esplode = INV_ESPLODE;
+      g.colpo = null;
+      g.bombe = [];
       dinoSuono("inv_colpito");
       dinoVibra("HEAVY");
-      g.invulnerabile = 1400;
-      g.bombe = [];
       if (g.vite <= 0) {
         g.esito = "perso";
-        g.fine = g.t + 700;
+        g.fine = g.t + INV_ESPLODE;
       }
       return false;
     }
     return true;
   });
-  // il disco volante del bonus, ogni tanto lassù
+  // il disco volante del bonus, ogni tanto lassù (solo con 8 alieni o più),
+  // col suo ronzio finché vola
   g.prossimoDisco -= ms;
-  if (!g.disco && g.prossimoDisco <= 0) {
+  if (!g.disco && g.prossimoDisco <= 0 && vivi.length >= 8) {
     const da = g.caso() < 0.5 ? -1 : 1;
     g.disco = { x: da > 0 ? -16 : INV_W, v: 0.8 * da };
     g.prossimoDisco = 12000 + g.caso() * 6000;
-    dinoSuono("inv_ufo");
+    g.ronzio = 0;
   }
   if (g.disco) {
     g.disco.x += g.disco.v;
+    g.ronzio -= ms;
+    if (g.ronzio <= 0) {
+      g.ronzio = 180;
+      dinoSuono("inv_disco");
+    }
     if (g.disco.x < -18 || g.disco.x > INV_W + 2) g.disco = null;
   }
-  g.scoppi = g.scoppi.filter((s) => g.t - s.t < (s.grande ? 600 : 260));
+  g.scoppi = g.scoppi.filter((s) => g.t - s.t < s.dura);
   if (!g.alieni.some((a) => a.vivo)) {
     g.esito = "vinto";
     g.fine = g.t + 300;
@@ -504,7 +614,7 @@ function invTick(g) {
 
 function invPasso(g, dt) {
   g.resto += dt;
-  while (g.resto >= INV_TICK) {
+  while (g.resto >= INV_TICK - INV_TOLLERA) {
     g.resto -= INV_TICK;
     invTick(g);
   }
@@ -529,8 +639,25 @@ function invFondo(c, g, x0, y0) {
     c.fillStyle = `rgba(255, 236, 214, ${v > 0.5 ? 0.55 : 0.2})`;
     c.fillRect(x0 + s.x, y0 + s.y, 1, 1);
   });
-  c.fillStyle = "rgba(255, 106, 0, 0.55)";
-  c.fillRect(x0, y0 + INV_TERRA, INV_W, 2);
+  // il sole a righe del nostro tramonto, basso dietro i bunker
+  dinoSole(c, x0 + INV_W / 2, y0 + INV_TERRA, 46, g.t);
+  // il terreno: una tela a 1 px per unità, bucata dove arrivano i colpi
+  if (!g.telaTerra || g.terraCambiata) {
+    g.telaTerra = g.telaTerra || document.createElement("canvas");
+    g.telaTerra.width = INV_W;
+    g.telaTerra.height = 2;
+    const tc = g.telaTerra.getContext("2d");
+    tc.clearRect(0, 0, INV_W, 2);
+    for (let x = 0; x < INV_W; x++) {
+      if (!g.terra[x]) continue;
+      tc.fillStyle = "#ff8a2a";
+      tc.fillRect(x, 0, 1, 1);
+      tc.fillStyle = "#a33d00";
+      tc.fillRect(x, 1, 1, 1);
+    }
+    g.terraCambiata = false;
+  }
+  c.drawImage(g.telaTerra, x0, y0 + INV_TERRA);
   c.fillStyle = "rgba(255, 106, 0, 0.12)";
   c.fillRect(x0, y0 + INV_TERRA + 2, INV_W, INV_H - INV_TERRA - 2);
   // la cornice del campo, sottile
@@ -544,7 +671,7 @@ function invDisegna(c, g, x0, y0, opz = {}) {
   invFondo(c, g, x0, y0);
   // in alto: i punti a sinistra, le vite a destra, il tempo al centro
   dinoScrittaDa(c, String(g.punti).padStart(4, "0"), x0 + 4, y0 + 2, "#ff9a3c", DINO_FONT_PICCOLO);
-  for (let i = 0; i < g.vite; i++) invSprite(c, "vita", INV_NAVE[0].slice(6, 12), INV_NAVE_COLORI, x0 + INV_W - 22 - i * 20, y0 + 3);
+  for (let i = 0; i < g.vite; i++) invSprite(c, "vita", INV_VITA, INV_NAVE_COLORI, x0 + INV_W - 16 - i * 14, y0 + 3);
   const resta = Math.max(0, 1 - g.t / BOSS_TEMPO);
   for (let i = 0; i < 8; i++) {
     c.fillStyle = "rgba(255, 255, 255, 0.14)";
@@ -556,12 +683,15 @@ function invDisegna(c, g, x0, y0, opz = {}) {
   }
   // la formazione
   if (!opz.senzaAlieni) {
+    c.save();
+    c.globalAlpha = opz.alieniAlfa === undefined ? 1 : opz.alieniAlfa; // nella gag della sconfitta si fanno da parte
     g.alieni.forEach((a) => {
       if (!a.vivo) return;
       const r = invAlieno(g, a);
       const tipo = INV_TIPI[a.r];
       invSprite(c, `al${a.r}${g.posa}`, tipo.pose[g.posa], { "#": tipo.colore }, x0 + r.x, y0 + r.y);
     });
+    c.restore();
   }
   if (g.disco) invSprite(c, "disco", INV_DISCO, { "#": "#ff3b3b" }, x0 + g.disco.x, y0 + 14);
   // i bunker: una tela a 1 px per unità ciascuno, sbriciolata a mano
@@ -581,28 +711,38 @@ function invDisegna(c, g, x0, y0, opz = {}) {
     }
     c.drawImage(b.tela, x0 + b.x, y0 + INV_BUNKER_Y);
   });
-  // le bombe: dritte, o a zig zag che si piegano a ogni passo (non nella gag)
-  if (!opz.gag) g.bombe.forEach((b) => {
-    c.fillStyle = "#f4f4f5";
-    const z = b.zig ? (Math.floor(b.y / 3) % 2 ? 1 : -1) : 0;
-    c.fillRect(x0 + b.x + (b.zig ? z : 0), y0 + b.y, 1, 2);
-    c.fillRect(x0 + b.x - (b.zig ? z : 0), y0 + b.y + 2, 1, 2);
-  });
-  if (g.colpo && !opz.gag) {
-    c.fillStyle = "#ffd23f";
-    c.fillRect(x0 + g.colpo.x, y0 + g.colpo.y, 1, 4);
+  // i colpi alieni: spirale, pistone, zig zag, con le pose che girano (non
+  // nella gag); il colpo del dino. Tele a 1 px per unità: niente righine
+  if (!opz.gag) {
+    g.bombe.forEach((b) => {
+      const tipo = INV_COLPI[b.tipo] ? b.tipo : "pistone";
+      const posa = Math.floor((b.eta || 0) / 5) % 4;
+      invSprite(c, `colpo${tipo}${posa}`, INV_COLPI[tipo][posa], { "#": "#f4f4f5" }, x0 + b.x - 1, y0 + b.y);
+    });
+    if (g.colpo) invSprite(c, "sparo", ["#", "#", "#", "#"], { "#": "#ffd23f" }, x0 + g.colpo.x, y0 + g.colpo.y);
   }
-  // il dino sulla sua astronave (lampeggia appena colpito)
-  if (!opz.senzaNave && g.vite > 0 && !(g.invulnerabile > 0 && Math.floor(g.t / 90) % 2)) {
+  // il dino sulla sua astronave (lampeggia appena tornato), o in pezzi
+  const pezzi = g.esplode > 0 || (g.vite <= 0 && g.fine);
+  if (pezzi && !opz.senzaNave && !opz.gag) {
+    const p = Math.floor(g.t / 110) % 2;
+    invSprite(c, `rotta${p}`, INV_ROTTA[p], { ...INV_NAVE_COLORI, "#": p ? "#ffd23f" : "#ff6a00" }, x0 + g.x - 9, y0 + INV_NAVE_Y);
+  } else if (!opz.senzaNave && g.vite > 0 && !(g.invulnerabile > 0 && Math.floor(g.t / 90) % 2)) {
     invSprite(c, `nave${Math.floor(g.t / 120) % 2}`, INV_NAVE[Math.floor(g.t / 120) % 2], INV_NAVE_COLORI, x0 + g.x - 9, y0 + INV_NAVE_Y - 4);
   }
-  // gli scoppi (nella gag quello del dino colpito solo all'inizio)
-  g.scoppi.forEach((s) => {
-    if (opz.senzaScoppi) return;
-    const sc = s.grande ? 2 : 1;
-    invSprite(c, `scoppio${s.grande ? "g" : ""}`, INV_SCOPPIO, { "#": s.grande ? "#ff6a00" : "#ffd23f" }, x0 + s.x - 6.5 * sc, y0 + s.y - 4 * sc, sc);
-    if (s.punti) dinoScritta(c, String(s.punti), x0 + s.x, y0 + s.y + 6, "#ff3b3b", DINO_FONT_PICCOLO);
-  });
+  // gli scoppi: l'alieno colpito (nel suo colore), i botti dei colpi, il
+  // punteggio misterioso al posto del disco
+  if (!opz.senzaScoppi) {
+    g.scoppi.forEach((s) => {
+      if (s.punti) {
+        if (g.t - s.t < 200) invSprite(c, "scoppiod", INV_SCOPPIO, { "#": "#ff3b3b" }, x0 + s.x - 6, y0 + s.y - 4);
+        else dinoScritta(c, String(s.punti), x0 + s.x, y0 + s.y - 4, "#ff3b3b", DINO_FONT_PICCOLO);
+        return;
+      }
+      const forma = s.botto ? INV_BOTTO : s.colore === "#f4f4f5" ? INV_SCHIZZO : INV_SCOPPIO;
+      const chiave = s.botto ? "botto" : s.colore === "#f4f4f5" ? "schizzo" : "scoppio";
+      invSprite(c, `${chiave}${s.colore || ""}`, forma, { "#": s.colore || "#ffd23f" }, x0 + s.x - Math.floor(forma[0].length / 2), y0 + s.y - 4);
+    });
+  }
 }
 
 // —— l'incontro degli invasori: il granchio grande sulla strada; dopo il
@@ -645,8 +785,10 @@ function invStrada(c, b, terra, W) {
   const larga = pose[0][0].length * s;
   const x = dinoBossPosto(b, W, larga);
   const fermo = dinoMotoRidotto();
-  const posa = fermo ? 0 : Math.floor(b.t / (b.fase === "arrivo" ? 150 : 300)) % 2;
-  const su = fermo ? 0 : Math.round(Math.sin(b.t / 220) * 1) * DINO_CELLA;
+  // mentre impreca saltella arrabbiato e agita le zampe, svelto
+  const impreca = b.fase === "incontro" && b.t > 250 && b.t < 1150;
+  const posa = fermo ? 0 : Math.floor(b.t / (b.fase === "arrivo" ? 150 : impreca ? 90 : 300)) % 2;
+  const su = fermo ? 0 : impreca ? -(Math.floor(b.t / 90) % 2) * 2 * DINO_CELLA : Math.round(Math.sin(b.t / 220) * 1) * DINO_CELLA;
   const alto = pose[0].length * s;
   c.fillStyle = "rgba(0, 0, 0, 0.35)";
   c.fillRect(x + 6, terra - 1, larga - 12, 2);
@@ -663,34 +805,50 @@ function invStrada(c, b, terra, W) {
 function invSopra(c, b, W) {
   const t = b.fase === "incontro" ? b.t : BOSS_INCONTRO + b.t;
   if (t < INV_SALTO_DA) dinoBossSpavento(c, b);
-  // il fumetto con la parolaccia, sopra l'alieno
+  // il fumetto con la parolaccia, sopra l'alieno (angoli smussati, punta
+  // verso di lui, simboli che tremano a colori alterni)
   if (t > 250 && t < 1150) {
     const larga = INV_GRANCHIO[0][0].length * INV_ALIENO_SCALA;
-    const x = dinoBossPosto(b, W, larga) - 26;
-    const y = dinoTerra() - 8 * INV_ALIENO_SCALA - 8 - 30;
-    const testo = "#@%&!";
-    const lw = 6 + testo.length * 8;
+    const posto = dinoBossPosto(b, W, larga);
+    const testo = "#@$%&!";
+    const lw = 4 + [...testo].reduce((n, ch) => n + INV_PAROLACCIA[ch][0].length * 2 + 2, 0);
+    const x = DINO_CELLA * Math.round((posto + larga / 2 - lw / 2 - 6) / DINO_CELLA);
+    const y = DINO_CELLA * Math.round((dinoTerra() - 8 * INV_ALIENO_SCALA - 8 - 36) / DINO_CELLA);
     c.fillStyle = "#141414";
-    c.fillRect(x - 2, y - 2, lw + 4, 18);
+    c.fillRect(x, y - 2, lw, 22);
+    c.fillRect(x - 2, y, lw + 4, 18);
+    c.fillRect(x + lw - 16, y + 20, 8, 2); // la punta verso l'alieno
+    c.fillRect(x + lw - 12, y + 22, 4, 2);
     c.fillStyle = "#f4f4f5";
-    c.fillRect(x, y, lw, 14);
-    c.fillRect(x + lw - 14, y + 14, 4, 2); // la punta verso l'alieno
-    c.fillRect(x + lw - 12, y + 16, 2, 2);
+    c.fillRect(x, y, lw, 18);
+    c.fillRect(x + lw - 14, y + 18, 4, 2);
     let cx = x + 4;
     [...testo].forEach((ch, i) => {
       const gl = INV_PAROLACCIA[ch];
       c.fillStyle = i % 2 ? "#ff3b3b" : "#141414";
       const tremo = !dinoMotoRidotto() && Math.floor(t / 90 + i) % 2 ? DINO_CELLA : 0;
-      gl.forEach((riga, r) => [...riga].forEach((p, k) => p === "#" && c.fillRect(cx + k * 2, y + 2 + r * 2 - tremo / 2, 2, 2)));
+      gl.forEach((riga, r) => [...riga].forEach((p, k) => p === "#" && c.fillRect(cx + k * 2, y + 2 + r * 2 - tremo, 2, 2)));
       cx += gl[0].length * 2 + 2;
     });
+    // la vena della rabbia che pulsa accanto alla testa
+    if (dinoMotoRidotto() || Math.floor(t / 180) % 2) {
+      c.fillStyle = "#ff3b3b";
+      const vx = posto + larga - 4;
+      const vy = DINO_CELLA * Math.round((dinoTerra() - 8 * INV_ALIENO_SCALA - 14) / DINO_CELLA);
+      INV_RABBIA.forEach((riga, r) => [...riga].forEach((p, k) => p === "#" && c.fillRect(vx + k * 2, vy + r * 2, 2, 2)));
+    }
   }
 }
 
 // —— le gag dell'esito (k da 0 a 1 in BOSS_ESITO) ——
 function invEsito(c, g, x0, y0, k, esito) {
   const vinto = esito === "vinto";
-  invDisegna(c, g, x0, y0, { gag: true, senzaNave: true, senzaAlieni: esito === "pari" && k > 0.5, senzaScoppi: k > 0.25 });
+  invDisegna(c, g, x0, y0, { gag: true, senzaNave: true, senzaAlieni: esito === "pari" && k > 0.5, senzaScoppi: k > 0.25, alieniAlfa: vinto ? 1 : Math.max(0.25, 1 - k * 4) });
+  // le scritte con l'ombra sotto: si leggono anche sopra alieni e stelle
+  const scritta = (testo, y, colore) => {
+    dinoScritta(c, testo, x0 + INV_W / 2, y + 2, "#141414");
+    dinoScritta(c, testo, x0 + INV_W / 2, y, colore);
+  };
   const cx = x0 + g.x;
   const madre = (alto) => invSprite(c, "madre", INV_DISCO, { "#": "#ff3b3b" }, x0 + INV_W / 2 - 32, y0 + alto, 4);
   if (vinto) {
@@ -731,7 +889,7 @@ function invEsito(c, g, x0, y0, k, esito) {
         c.fillStyle = i % 3 ? "#ff3b3b" : i % 2 ? "#ffd23f" : "#ffffff";
         c.fillRect(Math.round(x0 + INV_W / 2 + Math.cos(a) * r), Math.round(y0 + 24 + Math.sin(a) * r * 0.6), 2, 2);
       }
-      if (k > 0.8) dinoScritta(c, "Spazzati via!", x0 + INV_W / 2, y0 + 60, "#7dff4a");
+      if (k > 0.8) scritta("Spazzati via!", y0 + 60, "#7dff4a");
     }
   } else if (esito === "perso") {
     // l'astronave madre scende, il raggio traente agguanta il dino e lo
@@ -743,10 +901,13 @@ function invEsito(c, g, x0, y0, k, esito) {
     let sc = 1;
     if (k > 0.25 && k < 0.6) {
       const q = (k - 0.25) / 0.35;
-      c.fillStyle = "rgba(255, 210, 63, 0.18)";
-      for (let y = y0 + alto + 28; y < ny + 10; y += 2) {
-        const w = 10 + ((y - (y0 + alto + 28)) / (ny - y0 - alto)) * 30;
-        c.fillRect(Math.round(x0 + INV_W / 2 - w / 2 + (cx - x0 - INV_W / 2) * ((y - y0) / INV_H)), y, Math.round(w), 1);
+      // il raggio traente: righe da 2 unità, bande più chiare che salgono
+      const cima = y0 + DINO_CELLA * Math.round((alto + 28) / DINO_CELLA);
+      const sale = DINO_CELLA * Math.floor((k * BOSS_ESITO) / 40);
+      for (let y = cima; y < ny + 10; y += 2) {
+        const w = 10 + ((y - cima) / (ny - cima + 10)) * 30;
+        c.fillStyle = (y - cima + sale) % 12 < 4 ? "rgba(214, 255, 120, 0.5)" : "rgba(255, 210, 63, 0.26)";
+        c.fillRect(DINO_CELLA * Math.round((x0 + INV_W / 2 - w / 2 + (cx - x0 - INV_W / 2) * ((y - y0) / INV_H)) / DINO_CELLA), y, DINO_CELLA * Math.round(w / DINO_CELLA), 2);
       }
       nx = cx + (x0 + INV_W / 2 - cx) * q * 0.6;
       ny = ny - q * 50;
@@ -770,11 +931,11 @@ function invEsito(c, g, x0, y0, k, esito) {
       c.fillRect(x0 + INV_W - 8 - r, y0 + 8, r * 2 + 1, 1);
       c.fillRect(x0 + INV_W - 8, y0 + 8 - r, 1, r * 2 + 1);
     }
-    if (k > 0.4) dinoScritta(c, "Rapito!", x0 + INV_W / 2, y0 + 84, "#ff5fd2");
+    if (k > 0.4) scritta("Rapito!", y0 + 84, "#ff5fd2");
   } else {
     // tempo scaduto: gli alieni se ne vanno e il dino resta lì
     invSprite(c, "nave0", INV_NAVE[0], INV_NAVE_COLORI, cx - 9, y0 + INV_NAVE_Y - 4);
-    dinoScritta(c, "Tempo!", x0 + INV_W / 2, y0 + 60, "#ffd23f");
+    scritta("Tempo!", y0 + 60, "#ffd23f");
   }
 }
 
@@ -782,7 +943,7 @@ const BOSS_INVASORI = {
   titolo: "Invasione!",
   sotto: "Difendi la Terra",
   colore: "#7dff4a",
-  aiuto: "Trascina per muoverti",
+  aiuto: "Trascina. Spara da solo",
   nuovo: invNuovo,
   misura: () => ({ w: INV_W, h: INV_H }),
   passo: invPasso,
@@ -793,9 +954,12 @@ const BOSS_INVASORI = {
       return;
     }
     if (ev.tipo === "giu" || (g.dito && g.dito.id === ev.id)) g.dito = { id: ev.id, x: Math.max(0, Math.min(INV_W, ev.x)) };
+    if (ev.tipo === "giu") g.ricarica = 0; // il tocco spara subito (poi spara da solo)
   },
   tasto: (g, ev) => {
     if (ev.tasto === "sinistra" || ev.tasto === "destra") g.tasti[ev.tasto] = ev.giu;
+    // frecce per muoversi; spazio (o invio, o su) spara subito
+    if (ev.giu && (ev.tasto === "azione" || ev.tasto === "su")) g.ricarica = 0;
   },
   esito: invEsito,
   strada: invStrada,
@@ -888,6 +1052,11 @@ const BOSS_SUONI = {
     tono(880, 1320, 0, 0.12, 0.4);
     tono(1320, 880, 0.12, 0.12, 0.4);
   },
+  inv_disco: (tono) => {
+    tono(1180, 1560, 0, 0.09, 0.22);
+    tono(1560, 1180, 0.09, 0.09, 0.22);
+  },
+  inv_disco_preso: (tono) => [1568, 1319, 1047, 880, 1568].forEach((f, i) => tono(f, f * 0.94, i * 0.06, 0.055, 0.45)),
   inv_colpito: (tono, campana, rumore) => {
     rumore(0.25, 800, 0, 0.8);
     tono(220, 60, 0, 0.3, 0.7);
