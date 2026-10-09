@@ -4,13 +4,15 @@ import { apri, foto } from "./banco.mjs";
 const OUT = process.argv[2];
 for (const [nome, opz] of [["v", {}], ["o", { largo: 852, alto: 393, schermo: true }]]) {
   const { browser, page, errori } = await apri(opz);
+  // il motore col segnaposto (lo scimmione vero si batte il petto: suoni suoi)
+  await page.evaluate(() => (BOSS_GIOCHI.prova = BOSS_SEGNAPOSTO));
   await page.locator("#dinoCampo").tap();
   await page.evaluate(() => {
     window.__suoni = [];
     const o = window.dinoSuono;
     window.dinoSuono = (n) => (window.__suoni.push(n), o(n));
     window.__p = setInterval(() => (__dino.ostacoli = __dino.ostacoli.filter((o) => o.x > 90 || o.x + o.w < 0)), 20);
-    window.__dinoBoss("scimmione");
+    window.__dinoBoss("prova");
   });
   const scatta = async (fase, t, file) => {
     await page.waitForFunction(([f, t]) => __dino.boss && __dino.boss.fase === f && __dino.boss.t >= t, [fase, t], { timeout: 20000 });
