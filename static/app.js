@@ -17187,7 +17187,9 @@ function dinoDisegna() {
   const ascolta = dino.stato === "riposo";
   const giu = ascolta && Math.floor(t / 300) % 2 === 1 ? 2 : 0;
   const sbatte = ascolta && t % 3700 < 150;
-  if (muta ? muta.scala > 0 : forma === "scaglia") {
+  if (dinoBossNascondeDino()) {
+    // la gag del boss sulla strada disegna lei il dino (boss.js)
+  } else if (muta ? muta.scala > 0 : forma === "scaglia") {
     dinoDisegnaGodzilla(c, { x0, terra, scala: muta ? muta.scala : 1, bianco: !!(muta && muta.bianco), sbiadito: !!(finisce && forma === "scaglia"), corre });
   } else if (forma !== "pozione") {
     dinoDisegnaDino(c, { x0, y0, forma: forma === "scaglia" ? null : forma, corre, giu, sbatte, sfarfalla });
@@ -18834,7 +18836,8 @@ function dinoMenuBoss(menu) {
     if (!BOSS_ORDINE.includes(li.dataset.boss)) li.remove();
   });
   const lab = ul.querySelector('li[data-boss="labirinto"] span');
-  if (lab && typeof LAB_PUNTINI === "number" && typeof LAB_RESISTE === "number") lab.textContent = `Mangia ${LAB_PUNTINI} puntini o resisti ${Math.round(LAB_RESISTE / 1000)} secondi.`;
+  // si vince solo a puntini (09/10); BOSS_TEMPO c'è di sicuro: sta in boss.js con BOSS_ORDINE
+  if (lab && typeof LAB_PUNTINI === "number") lab.textContent = `Mangia ${LAB_PUNTINI} puntini entro ${Math.round(BOSS_TEMPO / 1000)} secondi.`;
   const nota = menu.querySelector(".dino-leg-nota");
   if (!nota) return;
   const quando = (b) => (b.primo === b.ogni ? `ogni ${b.ogni} punti` : `a ${b.primo} punti, poi ogni ${b.ogni}`);

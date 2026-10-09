@@ -1,6 +1,7 @@
 // Fase 4: il labirinto. Incontro (fantasma, pillola, trasformazione), tendina,
 // partita giocata da un «dito» che fa swipe veri verso il puntino più vicino,
-// gag di vittoria (e ritorno con la Stella) e di sconfitta (game over).
+// gag di vittoria sulla strada (e ritorno con la Stella), tempo scaduto senza
+// i puntini («pari»: dal 09/10 resistere non basta più) e sconfitta (game over).
 // Uso: node boss-labirinto.mjs <cartella-foto> [verticale|orizzontale]
 import { apri, foto } from "./banco.mjs";
 
@@ -74,11 +75,38 @@ await page.keyboard.press("ArrowRight");
 const k2 = await voglio();
 verifica(k1 === 2 && k2 === 3, `frecce: giù ${k1}, destra ${k2}`);
 
+// —— si vince solo a puntini (dal 09/10): resistere fino in fondo senza
+// mangiarne abbastanza non vince, e alla scadenza il motore chiude «pari»
+const regole = await page.evaluate(() => {
+  const chiusi = (g) => g.fantasmi.forEach((f, i) => Object.assign(f, { stato: "casa", uscita: 1e12, x: LAB_FANTASMI[i].x, y: 14, spaventato: false }));
+  // 70 s di partita coi fantasmi chiusi in casa: nessuno ti prende, mai «vinto»
+  const g = labNuovo(0);
+  chiusi(g);
+  let esito = null;
+  for (let i = 0; i < 70 * 60 && !esito; i++) esito = labPasso(g, 1000 / 60);
+  // l'ultimo puntino a 0,4 s dalla scadenza: vinto, e arriva al motore entro
+  // la scadenza anche se la scenetta (300 ms) non è finita
+  const h = labNuovo(0);
+  chiusi(h);
+  h.pronti = 0;
+  h.orologio = BOSS_TEMPO - 400;
+  h.mangiati = LAB_PUNTINI - 1;
+  let ultimo = null;
+  while (!ultimo && h.orologio < BOSS_TEMPO + 1000) ultimo = labPasso(h, 1000 / 60);
+  // il primo passo da quando il motore direbbe «pari» (b.t = orologio >= BOSS_TEMPO)
+  const primo = h.orologio >= BOSS_TEMPO && h.orologio - 1000 / 60 < BOSS_TEMPO;
+  return { esito, mangiati: g.mangiati, resiste: typeof LAB_RESISTE, puntini: LAB_PUNTINI, ultimo, primo, scena: Math.round(h.fine - h.t) };
+});
+verifica(regole.esito === null && regole.mangiati < regole.puntini && regole.resiste === "undefined", `70 s senza farsi prendere e senza i puntini: nessuna vittoria ${JSON.stringify(regole)}`);
+verifica(regole.ultimo === "vinto" && regole.primo && regole.scena > 0, `l'ultimo puntino all'ultimo: vinto entro il passo della scadenza, con la scenetta ancora a ${regole.scena} ms (${regole.ultimo})`);
+
 // —— una partita vera a swipe: verso il puntino più vicino per la strada più
 // corta che non passa accanto ai fantasmi; una pillola d'ufficio solo se uno
 // è proprio addosso (contata)
 let aiuti = 0;
-for (let i = 0; i < 500; i++) {
+let scarto = null;
+const t0 = Date.now();
+for (let i = 0; Date.now() - t0 < 75000; i++) {
   const mossa = await page.evaluate(() => {
     const b = __dino.boss;
     if (!b || b.fase !== "gioco") return null;
@@ -138,24 +166,55 @@ for (let i = 0; i < 500; i++) {
     await page.mouse.move(z.x, z.y);
     await page.mouse.up();
   }
-  if (i === 60) await foto(page, `${OUT}/${P}-lab-7-partita.png`, oriz);
+  if (i === 60) {
+    await foto(page, `${OUT}/${P}-lab-7-partita.png`, oriz);
+    // l'orologio del gioco (HUD, scadenza) è quello del motore
+    scarto = await page.evaluate(() => (__dino.boss.fase === "gioco" ? Math.abs(__dino.boss.t - __dino.boss.gioco.orologio) : 0));
+  }
   await page.waitForTimeout(25);
 }
-const partita = await page.evaluate(() => ({ fase: __dino.boss.fase, esito: __dino.boss.esito, mangiati: __dino.boss.gioco.mangiati, t: Math.round(__dino.boss.gioco.t) }));
-verifica(partita.esito === "vinto" && partita.mangiati >= 70, `partita a swipe veri fino in fondo: ${JSON.stringify(partita)}, pillole d'ufficio ${aiuti}`);
+verifica(scarto !== null && scarto < 0.001, `a metà partita l'orologio del gioco è quello del motore (scarto ${scarto})`);
+const partita = await page.evaluate(() => ({ fase: __dino.boss.fase, esito: __dino.boss.esito, mangiati: __dino.boss.gioco.mangiati, serve: LAB_PUNTINI, t: Math.round(__dino.boss.gioco.t) }));
+verifica(partita.esito === "vinto" && partita.mangiati >= partita.serve, `partita a swipe veri fino in fondo: ${JSON.stringify(partita)}, pillole d'ufficio ${aiuti}`);
 const suoni = await page.evaluate(() => [...new Set(window.__suoni)].join(","));
 verifica(/lab_waka1/.test(suoni) && /lab_waka2/.test(suoni), `suoni: ${suoni}`);
 
-// —— vittoria: 70 puntini
-if (partita.fase === "gioco") await page.evaluate(() => (__dino.boss.gioco.mangiati = 70)); // solo se la partita non è finita da sé
-await scatta("esito", 300, "8-vinto-gigante");
-await scatta("esito", 1000, "9-vinto-gnam");
-await scatta("esito", 1600, "10-vinto-occhi");
+// —— vittoria: LAB_PUNTINI puntini
+await scatta("esito", 300, "8-vinto-godzilla");
+await scatta("esito", 1000, "9-vinto-soffio");
+await scatta("esito", 1600, "10-vinto-arrosto");
 await page.waitForFunction(() => !__dino.boss, null, { timeout: 6000 });
 const dopo = await page.evaluate(() => ({ stato: __dino.stato, y: __dino.y, potere: __dino.potere && __dino.potere.tipo }));
 verifica(dopo.stato === "corsa" && dopo.y === 0 && dopo.potere === "stella", `vittoria: si torna a correre a terra con la Stella ${JSON.stringify(dopo)}`);
 await page.waitForTimeout(200);
 await foto(page, `${OUT}/${P}-lab-11-ritorno.png`, oriz);
+
+// —— tempo scaduto: fantasmi chiusi in casa, nessuno tocca niente; a 9 s
+// dalla fine (motore e orologio del gioco insieme) l'HUD lampeggia, poi «pari»
+await page.waitForTimeout(900);
+await page.evaluate(() => {
+  __dino.potere = null;
+  __dino.grazia = 0;
+  window.__dinoBoss("labirinto");
+});
+await page.waitForFunction(() => __dino.boss && __dino.boss.fase === "gioco" && __dino.boss.t > 300, null, { timeout: 25000 });
+const puntiPrima = await page.evaluate(() => {
+  const b = __dino.boss;
+  b.gioco.fantasmi.forEach((f, i) => Object.assign(f, { stato: "casa", uscita: 1e12, x: LAB_FANTASMI[i].x, y: 14, spaventato: false }));
+  b.gioco.pronti = 0;
+  b.t = b.gioco.orologio = BOSS_TEMPO - 9000;
+  return __dino.punti;
+});
+await page.waitForTimeout(400);
+await foto(page, `${OUT}/${P}-lab-16-ultimi-secondi.png`, oriz);
+const hud = await page.evaluate(() => Math.ceil((BOSS_TEMPO - __dino.boss.gioco.orologio) / 1000));
+verifica(hud >= 7 && hud <= 9, `HUD: i secondi che restano al boss (${hud})`);
+await scatta("esito", 600, "17-pari-tempo");
+const pari = await page.evaluate(() => ({ esito: __dino.boss.esito, mangiati: __dino.boss.gioco.mangiati }));
+verifica(pari.esito === "pari", `tempo scaduto senza i puntini: «pari» ${JSON.stringify(pari)}`);
+await page.waitForFunction(() => !__dino.boss, null, { timeout: 6000 });
+const dopoPari = await page.evaluate(() => ({ stato: __dino.stato, potere: __dino.potere && __dino.potere.tipo, punti: __dino.punti }));
+verifica(dopoPari.stato === "corsa" && !dopoPari.potere && dopoPari.punti - puntiPrima < 50, `«pari»: si torna a correre senza premio ${JSON.stringify(dopoPari)} (punti prima ${puntiPrima})`);
 
 // —— sconfitta: il rosso addosso
 await page.waitForTimeout(900);
@@ -171,9 +230,9 @@ await page.evaluate(() => {
   Object.assign(r, { x: Math.round(g.pac.x), y: g.pac.y, stato: "fuori", spaventato: false });
   g.paura = 0;
 });
-await scatta("esito", 300, "12-perso-preso");
-await scatta("esito", 900, "13-perso-sgonfio");
-await scatta("esito", 1600, "14-perso-pop");
+await scatta("esito", 300, "12-perso-carica");
+await scatta("esito", 900, "13-perso-volo");
+await scatta("esito", 1600, "14-perso-stella");
 await page.waitForFunction(() => __dino.stato === "fine", null, { timeout: 6000 });
 const fine = await page.evaluate(() => ({ causa: __dino.causa, y: __dino.y }));
 verifica(fine.causa === "Battuto dal boss" && fine.y === 0, `sconfitta: game over ${JSON.stringify(fine)}`);

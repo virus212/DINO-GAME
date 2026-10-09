@@ -6,9 +6,16 @@
 // Il dino al posto dell'idraulico sale fino alla ragazza sulla trave più
 // alta. Decisioni (09/10): 2 vite come gli invasori, si vince arrivando in
 // cima, si perde al secondo barile addosso; salto sopra i barili (+100).
-// Un dito: tieni premuto e il dino cammina verso il dito; trascina su (o
-// giù) vicino a una scala e sale (o scende); tocco breve, swipe veloce in
-// su o un secondo dito: salto. Frecce, spazio e invio sul desktop.
+// Comandi fissi a schermo come sul pannello del cabinato (Vitto 09/10: «lo
+// scimmione si fa fatica un attimo a muoversi, magari gli diamo dei comandi
+// levette arcade fisse a schermo»; prima erano gesti: tieni premuto,
+// trascina, tocca): la levetta in basso a sinistra (destra e sinistra
+// camminano, su e giù prendono la scala lì vicino) e il pulsante rosso del
+// salto in basso a destra. Ogni dito si lega al comando della metà del
+// banner dove è andato giù, quindi due dita insieme: corsa e salto. Con un
+// dito solo il pulsante si ricorda la levetta appena lasciata
+// (SC_SALTO_MEMORIA): lascia, tocca, e il salto è in corsa.
+// Frecce, spazio e invio sul desktop, come prima.
 // Ambiente nostro: cielo del tramonto, travi arancio, scritte a pixel.
 // Campo 256 x 150 unità. File a parte: solo definizioni al caricamento,
 // la registrazione in fondo ——
@@ -40,12 +47,29 @@ const SC_SCALE = [
 const SC_SCIMMIA_X = 22; // lo scimmione sulla trave in cima (24 x 22)
 const SC_LANCIO_X = 50; // dove nasce il barile lanciato
 const SC_BIDONE_X = 6; // il bidone in fondo a sinistra (12 x 14)
-const SC_PASSO = 0.7; // camminata del dino, unità per tick
+// camminata del dino, unità per tick. Era 0,7 (il campo da una parte
+// all'altra in 6 s): 0,8 il 09/10 («si fa fatica a muoversi»), resta sotto
+// i barili (0,85 al primo giro) che ti raggiungono da dietro come
+// nell'originale; il salto in corsa passa da 21 a 24 unità
+const SC_PASSO = 0.8;
 const SC_SALTO_V = 1.8; // il salto: alto 13 unità, mezzo secondo in aria (un barile da fermo si scavalca con ~0,2 s di margine)
 const SC_GRAVITA = 0.12;
 const SC_SCALA_V = 0.55;
-const SC_TIENI = 150; // ms: il dito tenuto giù comincia a camminare solo dopo (prima è un tocco)
-const SC_TIRA = 8; // unità di trascinamento in su o in giù per chiedere la scala
+// la levetta: parte da dove appoggi il pollice (se cade sulla levetta,
+// entro SC_LEV_AGGANCIO dal centro; più lontano conta il centro), con una
+// zona morta (il pollice appoggiato non muove niente); su e giù solo da
+// SC_LEV_VERT in là. Quanto lontano prende una scala tirandola su o giù
+// (coi tasti 6: col pollice si mira peggio, il dino ci va da solo)
+const SC_LEV_MORTA = 7;
+const SC_LEV_VERT = 8;
+const SC_LEV_AGGANCIO = 16;
+const SC_LEV_PRESA = 10;
+// con un dito solo: il pulsante toccato entro tanti ms dall'ultimo passo
+// salta nel verso in cui camminava (il pollice va dalla levetta al
+// pulsante; le fiammelle si scavalcano solo in corsa)
+const SC_SALTO_MEMORIA = 350;
+const SC_COM_META = 14; // mezzo comando (12 unità) più 2 di aria dal bordo
+const SC_COM_LONTANO = 24; // con tanto posto ai lati, al massimo così lontani dal campo
 const SC_MARTELLO = 9000; // ms col martello in mano
 const SC_MARTELLO_SU = 15; // il martello sospeso: la base sopra la trave (si prende saltando)
 const SC_MELODIA = [1, 2, 3, 2, 1, 2, 4, 2]; // la musichetta del martello, a giro
@@ -159,6 +183,54 @@ const SC_MARTELLO_COLORI = { h: "#c9c9ce", m: "#8f3200" };
 const SC_MARTELLO_FINE = { h: "#ffd23f", m: "#8f3200" }; // lampeggia quando sta per finire
 const SC_CUORE = [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."];
 
+// —— i comandi a schermo, visti un po' dall'alto come sul pannello di un
+// cabinato: la levetta (base tonda con l'anello arancio, asta, pallina
+// rossa) e il pulsante rosso nella sua ghiera. Ovali fatti a celle una
+// volta sola al caricamento (scDisco), poi tele fisse di dinoTela ——
+/** Un disco a celle visto un po' dall'alto: la faccia w x h (la cella la
+ * sceglie faccia(nx, ny), da -1 a 1 dal centro), sotto il fianco alto «alto»
+ * celle (lato), tutto intorno il bordo «o». */
+function scDisco(w, h, alto, faccia, lato = "s") {
+  const su = (x, y) => x >= 0 && x < w && y >= 0 && y < h && ((2 * x + 1 - w) / w) ** 2 + ((2 * y + 1 - h) / h) ** 2 <= 1;
+  const pieno = (x, y) => {
+    for (let k = 0; k <= alto; k++) if (su(x, y - k)) return true;
+    return false;
+  };
+  return Array.from({ length: h + alto }, (_, y) =>
+    Array.from({ length: w }, (_, x) => {
+      if (!pieno(x, y)) return ".";
+      if (!pieno(x - 1, y) || !pieno(x + 1, y) || !pieno(x, y - 1) || !pieno(x, y + 1)) return "o";
+      return su(x, y) && su(x, y + 1) ? faccia((2 * x + 1 - w) / w, (2 * y + 1 - h) / h) : lato;
+    }).join(""),
+  );
+}
+/** Le righe «sopra» incollate su quelle «sotto» a (x, y); «.» è trasparente. */
+const scIncolla = (sotto, sopra, x, y) =>
+  sotto.map((r, j) => [...r].map((ch, i) => (sopra[j - y] && sopra[j - y][i - x] && sopra[j - y][i - x] !== "." ? sopra[j - y][i - x] : ch)).join(""));
+/** La faccia di una base: l'anello arancio (luce in alto a sinistra) attorno
+ * al fondo scuro, col foro dell'asta al centro. */
+const scAnello = (fondo, foro) => (nx, ny) => {
+  const r = Math.hypot(nx, ny);
+  if (r < fondo) return r < foro ? "n" : "k";
+  return ny < -0.4 && nx < 0.25 ? "l" : "a";
+};
+const SC_LEVETTA = scDisco(24, 18, 2, scAnello(0.58, 0.2)); // la base: 24 x 20, la faccia centrata sulla riga 9
+const SC_PALLINA = scDisco(10, 10, 0, (nx, ny) => (Math.hypot(nx + 0.38, ny + 0.38) < 0.32 ? "w" : nx + ny > 0.55 ? "d" : "r"));
+// il pulsante su (tappo alto 3) e premuto (alto 1: scende di 2), 24 x 21,
+// la ghiera centrata sulla riga 10; dove i due bordi si incrociano un pixel
+// d'anello rimasto solo fra due bordi diventa bordo (sembrava polvere)
+const SC_PULSANTE = [3, 1].map((alto) =>
+  scIncolla(
+    ["", ""].map(() => ".".repeat(24)).concat(scDisco(24, 16, 3, scAnello(0.68, 0))),
+    scDisco(16, 10, alto, (nx, ny) => (Math.hypot(nx + 0.4, ny + 0.4) < 0.28 ? "w" : "r"), "d"),
+    4,
+    4 - alto,
+  ).map((r) => r.replace(/o[^o.]o/g, "ooo")),
+);
+const SC_COMANDI_COLORI = { o: "#141414", a: "#ff6a00", l: "#ffb066", s: "#8f3200", k: "#2a1a12", n: "#0a0604", r: "#ff3b3b", d: "#a8201a", w: "#ffd9d0" };
+// tenuto giù: l'anello si accende (e il tappo premuto pure), a vista che il dito c'è
+const SC_COMANDI_ACCESI = { ...SC_COMANDI_COLORI, a: "#ff9a3c", l: "#ffd23f", r: "#ff5a4a" };
+
 /** La superficie di una trave a quella x: a gradini di 8 unità come le
  * travi dell'originale. */
 function scSu(i, x) {
@@ -193,53 +265,48 @@ function scNuovo(livello) {
     nota: 0,
     prossimaNota: 0,
     scoppi: [],
-    saltoVerso: null,
     vite: 2,
     invulnerabile: 0,
     punti: 0,
     scritte: [],
-    dito: null,
+    levetta: null, // il dito sulla levetta: { id, ox, oy (da dove parte), oriz, vert } (-1, 0, 1)
+    pulsante: null, // il dito sul pulsante: { id }
     tasti: {},
     salta: false,
     prossimoPasso: 0,
+    camminava: -1e9, // g.t dell'ultimo passo sulla trave (SC_SALTO_MEMORIA)
     fine: 0,
     esito: null,
     stelle,
   };
 }
 
-/** La scala buona per salire (-1) o scendere (+1) più vicina alla x
- * «mira» (il dito, o il dino coi tasti), entro «entro» unità. */
-function scScalaPer(g, verso, mira, entro) {
+/** La scala buona per salire (-1) o scendere (+1) più vicina al dino,
+ * entro «entro» unità. */
+function scScalaPer(g, verso, entro) {
   const da = verso < 0 ? g.d.piano : g.d.piano - 1;
   let meglio = null;
   SC_SCALE.forEach((s) => {
-    if (s.rotta || s.da !== da || Math.abs(s.x - mira) > entro) return;
-    if (!meglio || Math.abs(s.x - mira) < Math.abs(meglio.x - mira)) meglio = s;
+    if (s.rotta || s.da !== da || Math.abs(s.x - g.d.x) > entro) return;
+    if (!meglio || Math.abs(s.x - g.d.x) < Math.abs(meglio.x - g.d.x)) meglio = s;
   });
   return meglio;
 }
 
-/** Cosa chiede il giocatore adesso: tasti, o il dito tenuto giù. Il dito
- * comincia a camminare dopo SC_TIENI ms (o appena si muove), così un tocco
- * breve è solo un salto; trascinato su o giù chiede la scala più vicina al
- * dito, e il dino ci va da solo e sale. */
+/** Cosa chiede il giocatore adesso: le frecce, o la levetta dove le frecce
+ * tacciono. Su o giù chiedono la scala lì vicino, e il dino ci va da solo e
+ * sale (o scende); con la levetta la si prende un po' più da lontano. */
 function scComando(g) {
   let orizz = (g.tasti.destra ? 1 : 0) - (g.tasti.sinistra ? 1 : 0);
   let vert = (g.tasti.giu ? 1 : 0) - (g.tasti.su ? 1 : 0);
-  let mira = g.d.x;
   let entro = 6;
-  const f = g.dito;
-  if (f && (f.attivo || g.t - f.t0 >= SC_TIENI)) {
-    f.attivo = true;
-    const dx = f.x - g.d.x;
-    if (Math.abs(dx) > 2) orizz = Math.sign(dx);
-    const tirato = f.y - f.y0;
-    if (Math.abs(tirato) > SC_TIRA) vert = Math.sign(tirato);
-    mira = f.x;
-    entro = 16;
+  const l = g.levetta;
+  if (l && !orizz) orizz = l.oriz;
+  if (l && !vert && l.vert) {
+    vert = l.vert;
+    entro = SC_LEV_PRESA;
   }
-  return { orizz, vert, mira, entro };
+  return { orizz, vert, entro };
 }
 
 function scPrendi(g) {
@@ -297,8 +364,8 @@ function scTick(g) {
       d.vy = 0;
     }
   } else {
-    // la scala chiesta (la più vicina al dito): il dino ci va e ci sale
-    const s = cmd.vert && !g.martello ? scScalaPer(g, cmd.vert, cmd.mira, cmd.entro) : null;
+    // la scala chiesta (la più vicina): il dino ci va e ci sale
+    const s = cmd.vert && !g.martello ? scScalaPer(g, cmd.vert, cmd.entro) : null;
     let verso = cmd.orizz;
     if (s) {
       if (Math.abs(s.x - d.x) <= SC_PASSO) {
@@ -315,19 +382,20 @@ function scTick(g) {
         d.x = Math.max(t.x1 + 4, Math.min(t.x2 - 4, d.x + verso * SC_PASSO));
         d.passo += ms;
         cammina = true;
+        g.camminava = g.t;
       }
       d.y = scSu(d.piano, d.x);
       if (salta && !g.martello) {
-        const sv = g.saltoVerso === null ? verso : g.saltoVerso;
+        // nel verso in cui sta camminando, o camminava un attimo fa (un dito
+        // solo: dalla levetta al pulsante); fermo da un po': sul posto
+        const sv = verso || (g.t - g.camminava <= SC_SALTO_MEMORIA ? d.verso : 0);
         d.aria = true;
         d.vy = -SC_SALTO_V;
         d.vx = sv * SC_PASSO;
-        if (sv) d.verso = sv;
         dinoSuono("sc_salto");
       }
     }
   }
-  g.saltoVerso = null;
   if (cammina) {
     g.prossimoPasso -= ms;
     if (g.prossimoPasso <= 0) {
@@ -678,7 +746,90 @@ function scDisegnaDino(c, g, x0, y0) {
 const SC_DINO_PASSI_SX = SC_DINO_PASSI.map(scGira);
 const scGiraCache = (p) => SC_DINO_PASSI_SX[p];
 
-function scDisegna(c, g, x0, y0, opz = {}) {
+/** Dove stanno levetta e pulsante (i centri delle loro facce, in unità del
+ * campo), dalle misure di adesso e mai salvati (rotazione, schermo intero,
+ * Home): x0 è dove comincia il campo nel banner. Ai lati del campo se c'è
+ * posto (a schermo intero ~29 unità per lato dentro l'isola, nel banner
+ * verticale da 393 pt 28), al massimo SC_COM_LONTANO dal campo; se no
+ * attaccati ai bordi, un po' sopra gli angoli bassi del campo (iPhone da
+ * 375 pt in verticale: 20 unità per lato, ne sporgono 6 sulla trave di
+ * sotto, lontano dal bidone e dalle scale). In basso, dove stanno i pollici. */
+function scComandi(x0) {
+  const sx = dino.margine - x0; // il bordo visibile a sinistra (dentro l'isola)
+  const dx = dino.w - dino.margineDx - x0; // e a destra
+  const lx = Math.max(sx + SC_COM_META, -Math.min(-sx / 2, SC_COM_LONTANO));
+  const px = Math.min(dx - SC_COM_META, SC_W + Math.min((dx - SC_W) / 2, SC_COM_LONTANO));
+  // il fondo dei comandi pari al fondo del campo, non del banner: nel
+  // banner verticale gli angoli del cabinato sono tondi (16 pt) e li
+  // taglierebbero
+  const y = SC_H - 10;
+  return { lev: { x: 2 * Math.round(lx / 2), y }, pul: { x: 2 * Math.round(px / 2), y } };
+}
+
+/** Il centro della levetta (fra la base e la pallina a riposo: lì cade il
+ * pollice), in unità del campo. */
+function scCentroLevetta() {
+  const k = scComandi(dinoBossCampo(dino.boss).x);
+  return { x: k.lev.x, y: k.lev.y - 3 };
+}
+
+/** Dove spinge la levetta il dito l, ora a (x, y): la posizione rispetto a
+ * dove è partito (l.ox, l.oy), fuori dalla zona morta, in 8 direzioni
+ * ridotte a orizzontale + verticale. Le diagonali sono un po' strette verso
+ * l'orizzontale (su o giù solo oltre 30° invece di 22,5°, e da SC_LEV_VERT
+ * in là): camminando, il pollice che sbanda non prende una scala per
+ * sbaglio. */
+function scLevettaVerso(l, x, y) {
+  const dx = x - l.ox;
+  const dy = y - l.oy;
+  if (dx * dx + dy * dy < SC_LEV_MORTA * SC_LEV_MORTA) return { oriz: 0, vert: 0 };
+  return {
+    oriz: Math.abs(dx) > Math.abs(dy) * 0.414 ? Math.sign(dx) : 0,
+    vert: Math.abs(dy) >= SC_LEV_VERT && Math.abs(dy) > Math.abs(dx) * 0.577 ? Math.sign(dy) : 0,
+  };
+}
+
+/** I comandi a schermo, solo dallo stato (g.levetta, g.pulsante): la base
+ * della levetta, l'asta dal foro alla pallina che si sposta a scatti verso
+ * dove la tieni, il pulsante che si abbassa premuto; l'anello si accende
+ * sotto il dito. Fuori dal campo pieni; se sporgono sul campo (iPhone da
+ * 375 pt) tutto il comando un po' trasparente (travi, barili e dino si
+ * vedono sotto). A partita decisa a riposo (non rispondono più). Niente che
+ * si muova da solo: con «riduci movimento» è tutto uguale. */
+function scDisegnaComandi(c, g, x0, y0) {
+  const k = scComandi(x0);
+  const l = g.fine ? null : g.levetta;
+  const p = g.pulsante && !g.fine ? 1 : 0;
+  const leva = () => {
+    const lx = x0 + k.lev.x;
+    const ly = y0 + k.lev.y;
+    scSprite(c, `levetta${l ? 1 : 0}`, SC_LEVETTA, l ? SC_COMANDI_ACCESI : SC_COMANDI_COLORI, lx - 12, ly - 9);
+    const bx = lx + (l ? l.oriz * 6 : 0);
+    const by = ly - 6 + (l ? l.vert * 5 : 0);
+    const n = Math.max(1, Math.abs(bx - lx), Math.abs(by - ly));
+    for (let i = 0; i <= n; i++) {
+      const ax = Math.round(lx + ((bx - lx) * i) / n);
+      const ay = Math.round(ly + ((by - ly) * i) / n);
+      c.fillStyle = "#e8e8ec";
+      c.fillRect(ax - 1, ay - 1, 1, 2);
+      c.fillStyle = "#8a8a90";
+      c.fillRect(ax, ay - 1, 1, 2);
+    }
+    scSprite(c, "pallina", SC_PALLINA, SC_COMANDI_COLORI, bx - 5, by - 5);
+  };
+  const pulsante = () => scSprite(c, `pulsante${p}`, SC_PULSANTE[p], p ? SC_COMANDI_ACCESI : SC_COMANDI_COLORI, x0 + k.pul.x - 12, y0 + k.pul.y - 10);
+  const conAlfa = (sporge, disegna) => {
+    if (!sporge) return disegna();
+    c.save();
+    c.globalAlpha = 0.7;
+    disegna();
+    c.restore();
+  };
+  conAlfa(k.lev.x + 12 > 0, leva);
+  conAlfa(k.pul.x - 12 < SC_W, pulsante);
+}
+
+function scDisegna(c, g, x0, y0) {
   scFondo(c, g, x0, y0);
   // le due scale lunghe a sinistra della ragazza (da lì è salito lo scimmione)
   c.fillStyle = "rgba(143, 227, 255, 0.55)";
@@ -707,18 +858,16 @@ function scDisegna(c, g, x0, y0, opz = {}) {
   const py = scSu(5, 12);
   [[8, 0], [8, 8], [14, 0], [14, 8]].forEach(([x, y], i) => scSprite(c, "dritto", SC_BARILE_DRITTO, SC_BARILE_COLORI, x0 + x + (i > 1 ? 0 : 0), y0 + py - 8 - y));
   // lo scimmione: barile sopra la testa quando lancia, ogni tanto si batte il petto
-  if (!opz.senzaScimmia) {
-    const sy = scSu(5, SC_SCIMMIA_X + 12) - 22;
-    const petto = g.petto && g.t >= g.petto && Math.floor((g.t - g.petto) / 150) % 2;
-    const prende = g.lancio && g.t - g.lancio < 200;
-    const posa = (g.lancio && !prende) || petto || (g.esito === "perso" && g.fine) ? 1 : 0;
-    scDisegnaScimmia(c, x0 + SC_SCIMMIA_X, y0 + sy, posa);
-    if (g.lancio) {
-      // il barile dalla pila alle mani, poi sopra la testa
-      const q = Math.min(1, (g.t - g.lancio) / 220);
-      const blu = scBlu(g.lanci);
-      scSprite(c, `barile0${blu ? "b" : ""}`, SC_BARILE[0], blu ? SC_BARILE_BLU : SC_BARILE_COLORI, x0 + 10 + (SC_SCIMMIA_X - 2) * q, y0 + sy + 8 - 15 * q);
-    }
+  const sy = scSu(5, SC_SCIMMIA_X + 12) - 22;
+  const petto = g.petto && g.t >= g.petto && Math.floor((g.t - g.petto) / 150) % 2;
+  const prende = g.lancio && g.t - g.lancio < 200;
+  const posa = (g.lancio && !prende) || petto || (g.esito === "perso" && g.fine) ? 1 : 0;
+  scDisegnaScimmia(c, x0 + SC_SCIMMIA_X, y0 + sy, posa);
+  if (g.lancio) {
+    // il barile dalla pila alle mani, poi sopra la testa
+    const q = Math.min(1, (g.t - g.lancio) / 220);
+    const blu = scBlu(g.lanci);
+    scSprite(c, `barile0${blu ? "b" : ""}`, SC_BARILE[0], blu ? SC_BARILE_BLU : SC_BARILE_COLORI, x0 + 10 + (SC_SCIMMIA_X - 2) * q, y0 + sy + 8 - 15 * q);
   }
   // la ragazza in cima che chiama aiuto
   const rx = 104;
@@ -730,26 +879,24 @@ function scDisegna(c, g, x0, y0, opz = {}) {
   g.martelli.forEach((m) => {
     if (!m.preso) scSprite(c, "martello", SC_MARTELLO_SU_RIGHE, SC_MARTELLO_COLORI, x0 + m.x - 3, y0 + scSu(m.piano, m.x) - SC_MARTELLO_SU - 9);
   });
-  if (!opz.gag) {
-    g.barili.forEach((b) => {
-      const posa = b.stato === "scende" || b.stato === "giu" ? 0 : Math.floor(b.giro / 3) % 4;
-      scSprite(c, `barile${posa}${b.blu ? "b" : ""}`, SC_BARILE[posa], b.blu ? SC_BARILE_BLU : SC_BARILE_COLORI, x0 + b.x - 4, y0 + b.y - 8);
-    });
-    g.fiamme.forEach((f) => {
-      let fx = f.x;
-      let fy = f.y;
-      const q = (g.t - f.nasce) / 400;
-      if (q < 1) {
-        // salta fuori dal bidone ad arco
-        fx = SC_BIDONE_X + 6 + (f.x - SC_BIDONE_X - 6) * q;
-        fy = f.y - 16 * Math.sin(Math.PI * q) - (1 - q) * 12;
-      }
-      const p = Math.floor(g.t / 120) % 2;
-      scSprite(c, `fiamma${p}`, SC_FIAMMELLA[p], SC_FIAMMELLA_COLORI, x0 + fx - 4, y0 + fy - 8);
-    });
-  }
+  g.barili.forEach((b) => {
+    const posa = b.stato === "scende" || b.stato === "giu" ? 0 : Math.floor(b.giro / 3) % 4;
+    scSprite(c, `barile${posa}${b.blu ? "b" : ""}`, SC_BARILE[posa], b.blu ? SC_BARILE_BLU : SC_BARILE_COLORI, x0 + b.x - 4, y0 + b.y - 8);
+  });
+  g.fiamme.forEach((f) => {
+    let fx = f.x;
+    let fy = f.y;
+    const q = (g.t - f.nasce) / 400;
+    if (q < 1) {
+      // salta fuori dal bidone ad arco
+      fx = SC_BIDONE_X + 6 + (f.x - SC_BIDONE_X - 6) * q;
+      fy = f.y - 16 * Math.sin(Math.PI * q) - (1 - q) * 12;
+    }
+    const p = Math.floor(g.t / 120) % 2;
+    scSprite(c, `fiamma${p}`, SC_FIAMMELLA[p], SC_FIAMMELLA_COLORI, x0 + fx - 4, y0 + fy - 8);
+  });
   // le schegge di quello che il martello ha spaccato
-  if (!opz.gag) g.scoppi.forEach((o) => {
+  g.scoppi.forEach((o) => {
     const q = (g.t - o.t) / 320;
     const r = 2 + q * 8;
     c.fillStyle = q < 0.5 ? "#ffffff" : "#ffd23f";
@@ -759,10 +906,10 @@ function scDisegna(c, g, x0, y0, opz = {}) {
     }
   });
   // il dino (lampeggia appena preso)
-  if (!opz.senzaDino && (g.vite > 0 || opz.gag) && !(g.invulnerabile > 0 && !opz.gag && Math.floor(g.t / 90) % 2)) {
+  if (g.vite > 0 && !(g.invulnerabile > 0 && Math.floor(g.t / 90) % 2)) {
     scDisegnaDino(c, g, x0, y0);
     // il martello in mano: alzato e steso davanti, a tempo; lampeggia alla fine
-    if (g.martello && !opz.gag) {
+    if (g.martello) {
       const d = g.d;
       const fine = g.martello < 2000 && Math.floor(g.t / 100) % 2;
       const col = fine ? SC_MARTELLO_FINE : SC_MARTELLO_COLORI;
@@ -783,6 +930,8 @@ function scDisegna(c, g, x0, y0, opz = {}) {
       c.fillRect(x0 + 168 + i * 4, y0 + 16, 3, 3);
     }
   }
+  // in basso ai lati la levetta e il pulsante
+  scDisegnaComandi(c, g, x0, y0);
 }
 
 // —— l'incontro dello scimmione: entra a passi pesanti e si batte il
@@ -856,142 +1005,51 @@ function scSopra(c, b, W) {
   }
 }
 
-// —— le gag dell'esito (k da 0 a 1 in BOSS_ESITO) ——
-function scEsito(c, g, x0, y0, k, esito) {
-  const vinto = esito === "vinto";
-  const perso = esito === "perso";
-  scDisegna(c, g, x0, y0, { gag: true, senzaScimmia: true, senzaDino: perso && k > 0.42 });
-  const sy0 = scSu(5, SC_SCIMMIA_X + 12) - 22;
-  if (vinto) {
-    // arriva Godzilla dal basso a destra e col soffio arrostisce lo scimmione,
-    // che vola giù dalle travi
-    const aperta = k > 0.32 && k < 0.7;
-    const righe = dinoGodzillaRighe(0, aperta);
-    const gw = GODZILLA_W;
-    const gh = GODZILLA_H;
-    const gx = x0 + SC_W - gw - 10;
-    const gy = y0 + SC_H - gh + Math.round(gh * Math.max(0, 1 - k / 0.25));
-    const arrosto = k > 0.55;
-    let sx = x0 + SC_SCIMMIA_X;
-    let sy = y0 + sy0;
-    if (k > 0.7) {
-      const q = (k - 0.7) / 0.3;
-      sx += q * 30;
-      sy += -12 * q + 190 * q * q;
-    }
-    c.save();
-    c.translate(Math.round(sx + 12), Math.round(sy + 11));
-    if (k > 0.7) c.rotate((k - 0.7) * 14);
-    c.drawImage(dinoTela(`sc|scimmia${arrosto ? 1 : 0}${arrosto ? "a" : ""}`, SC_SCIMMIA[arrosto ? 1 : 0], arrosto ? SC_SCIMMIA_ARROSTO : SC_SCIMMIA_COLORI), -12, -11, 24, 22);
-    c.restore();
-    if (arrosto && k < 0.9) {
-      // il fumo dell'arrosto
-      for (let i = 0; i < 4; i++) {
-        const q = ((k - 0.55) * 4 + i * 0.25) % 1;
-        c.fillStyle = `rgba(200, 200, 210, ${(0.5 * (1 - q)).toFixed(2)})`;
-        c.fillRect(Math.round(sx + 6 + i * 4), Math.round(sy - 4 - q * 16), 3, 3);
-      }
-    }
-    c.save();
-    c.translate(gx + gw, gy);
-    c.scale(-1, 1);
-    c.drawImage(dinoTela(`godz|0|${aperta}|`, righe, GODZILLA_COLORI), 0, 0, gw, gh);
-    c.restore();
-    if (aperta) {
-      // il soffio atomico dalla bocca allo scimmione
-      const bx = gx + gw - GODZILLA_BOCCA[0];
-      const by = gy + GODZILLA_BOCCA[1];
-      const tx = x0 + SC_SCIMMIA_X + 12;
-      const ty = y0 + sy0 + 10;
-      c.save();
-      c.globalCompositeOperation = "lighter";
-      for (let l = 0; l <= 1; l += 0.02) {
-        const px = Math.round(bx + (tx - bx) * l);
-        const py = Math.round(by + (ty - by) * l);
-        c.fillStyle = "rgba(80, 200, 255, 0.35)";
-        c.fillRect(px - 3, py - 3, 6, 6);
-        c.fillStyle = "rgba(240, 253, 255, 0.8)";
-        c.fillRect(px - 1, py - 1, 2, 2);
-      }
-      c.restore();
-    }
-    if (k > 0.72) dinoScritta(c, "Arrosto!", x0 + SC_W / 2 - 20, y0 + 60, "#7dff4a");
-  } else if (perso) {
-    // lo scimmione salta giù accanto al dino e gli tira un calcio che lo
-    // manda lontanissimo: una stellina in alto a destra
-    const d = g.d;
-    const q = Math.min(1, k / 0.3);
-    const ax = SC_SCIMMIA_X + (d.x - 30 - SC_SCIMMIA_X) * q;
-    const ay = sy0 + (d.y - 22 - sy0) * q - Math.sin(Math.PI * q) * 30;
-    const posa = k > 0.3 && k < 0.42 ? 1 : k >= 0.42 ? 0 : 1;
-    scDisegnaScimmia(c, x0 + Math.max(0, ax), y0 + ay, posa);
-    if (k >= 0.42 && k < 0.5) {
-      // il colpo: una stella gialla
-      c.fillStyle = "#ffd23f";
-      c.fillRect(x0 + d.x - 8, y0 + d.y - 7, 9, 2);
-      c.fillRect(x0 + d.x - 4, y0 + d.y - 11, 2, 9);
-    }
-    if (k >= 0.42 && k < 0.85) {
-      const r = (k - 0.42) / 0.43;
-      const nx = d.x + (SC_W - 10 - d.x) * r;
-      const ny = d.y - 6 - (d.y - 8) * r - Math.sin(Math.PI * r) * 30;
-      const sc = Math.max(0.2, 1 - r * 0.8);
-      c.save();
-      c.translate(Math.round(x0 + nx), Math.round(y0 + ny));
-      c.rotate(r * 12);
-      c.drawImage(dinoTela("sc|dino2d", SC_DINO_PASSI[2], SC_DINO_COLORI), -6 * sc, -6 * sc, 12 * sc, 12 * sc);
-      c.restore();
-    } else if (k >= 0.85) {
-      const q2 = (k - 0.85) / 0.15;
-      const r = q2 < 0.5 ? 1 + q2 * 6 : 4 - (q2 - 0.5) * 6;
-      c.fillStyle = "#ffffff";
-      c.fillRect(x0 + SC_W - 10 - r, y0 + 8, r * 2 + 1, 1);
-      c.fillRect(x0 + SC_W - 10, y0 + 8 - r, 1, r * 2 + 1);
-    }
-    if (k > 0.45) dinoScritta(c, "Che calcio!", x0 + SC_W / 2, y0 + 62, "#ff5fd2");
-  } else {
-    // tempo scaduto: lo scimmione se la ride
-    scDisegnaScimmia(c, x0 + SC_SCIMMIA_X, y0 + sy0, Math.floor(k * 10) % 2);
-    dinoScritta(c, "Tempo!", x0 + SC_W / 2, y0 + 60, "#ffd23f");
-  }
+// —— la gag sulla strada (Vitto 09/10: «le scene di vittoria o sconfitta le
+// volevo fuori dal minigame, come l'incontro»): quella di serie di boss.js
+// (Godzilla col soffio; il dino scagliato via) con lo scimmione vero, che a
+// vincere si batte il petto e sotto il soffio resta arrosto ——
+function scRitratto(c, b, x, terra, stato) {
+  const s = SC_SCALA_STRADA;
+  const larga = 24 * s;
+  const alto = 22 * s;
+  const posa = stato.esulta && !dinoMotoRidotto() ? Math.floor(b.t / 220) % 2 : 0;
+  c.fillStyle = "rgba(0, 0, 0, 0.35)";
+  c.fillRect(x + 4, terra - 1, larga - 8, 2);
+  c.imageSmoothingEnabled = false;
+  c.drawImage(dinoTela(`sc|scimmia${posa}${stato.arrosto ? "a" : ""}`, SC_SCIMMIA[posa], stato.arrosto ? SC_SCIMMIA_ARROSTO : SC_SCIMMIA_COLORI), x, terra - alto, larga, alto);
+}
+function scGagPasso(b, k, una) {
+  dinoBossGagPassoDiSerie(b, k, una);
+  if (b.esito === "perso") una("petto", GAG_CARICA + 0.05, () => dinoSuono("sc_petto"));
 }
 
 function scDito(g, ev) {
-  const x = Math.max(0, Math.min(SC_W, ev.x));
-  const y = ev.y;
+  if (ev.tipo === "su") {
+    if (g.levetta && g.levetta.id === ev.id) g.levetta = null;
+    if (g.pulsante && g.pulsante.id === ev.id) g.pulsante = null;
+    return;
+  }
   if (ev.tipo === "giu") {
-    if (g.dito && g.dito.id !== ev.id) {
-      // un secondo dito: salto nel verso in cui sta camminando
-      g.salta = true;
-      g.saltoVerso = null;
-      return;
+    if (ev.x >= SC_W / 2) {
+      g.pulsante = { id: ev.id };
+      g.salta = true; // nel verso in cui sta camminando, come lo spazio
+    } else if (!g.levetta) {
+      // un altro dito (il palmo) sulla levetta già tenuta non la ruba
+      const o = scCentroLevetta();
+      const vicino = (ev.x - o.x) ** 2 + (ev.y - o.y) ** 2 <= SC_LEV_AGGANCIO ** 2;
+      g.levetta = { id: ev.id, ox: vicino ? ev.x : o.x, oy: vicino ? ev.y : o.y, oriz: 0, vert: 0 };
     }
-    g.dito = { id: ev.id, x, y, x0: x, y0: y, t0: g.t, mosso: 0, attivo: false };
-    return;
   }
-  const f = g.dito;
-  if (!f || f.id !== ev.id) return;
-  if (ev.tipo === "muovi") {
-    f.mosso = Math.max(f.mosso, Math.abs(x - f.x0), Math.abs(y - f.y0));
-    if (f.mosso > 6) f.attivo = true;
-    f.x = x;
-    f.y = y;
-    return;
-  }
-  // il dito si alza: un tocco breve e fermo (mai un trascinamento) è un
-  // salto, verso il punto toccato se è lontano dal dino, sul posto se vicino
-  if (!f.attivo && f.mosso <= 6) {
-    g.salta = true;
-    g.saltoVerso = Math.abs(f.x0 - g.d.x) > 10 ? Math.sign(f.x0 - g.d.x) : 0;
-  }
-  g.dito = null;
+  const l = g.levetta;
+  if (l && l.id === ev.id) Object.assign(l, scLevettaVerso(l, ev.x, ev.y));
 }
 
 const BOSS_SCIMMIONE = {
   titolo: "Scimmione!",
   sotto: "Sali fino in cima",
   colore: "#ff8a2a",
-  aiuto: "Trascina e tocca",
+  aiuto: "Levetta e pulsante",
   nuovo: scNuovo,
   misura: () => ({ w: SC_W, h: SC_H }),
   passo: scPasso,
@@ -999,13 +1057,12 @@ const BOSS_SCIMMIONE = {
   dito: scDito,
   tasto: (g, ev) => {
     if (ev.tasto === "azione") {
-      if (ev.giu) {
-        g.salta = true;
-        g.saltoVerso = null;
-      }
+      if (ev.giu) g.salta = true;
     } else g.tasti[ev.tasto] = ev.giu;
   },
-  esito: scEsito,
+  larga: 24 * SC_SCALA_STRADA,
+  ritratto: scRitratto,
+  gagPasso: scGagPasso,
   strada: scStrada,
   sopra: scSopra,
   incontroPasso: scIncontroPasso,

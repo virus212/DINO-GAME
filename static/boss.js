@@ -17,8 +17,9 @@
 //   pieno, la pausa (tocco, menu, schermo intero, background) e i tasti
 //   nascosti in corsa funzionano da soli. Il boss è un sotto-stato a parte,
 //   dino.boss: null (nessuno) oppure { fase, tipo, livello, t, corsa0,
-//   velocita, esito, gioco, dita, tasti, prima }: gioco è lo stato del
-//   minigioco, dita e tasti quello che è tenuto giù, prima = primo incontro
+//   velocita, esito, gioco, dita, sordi, tasti, prima }: gioco è lo stato del
+//   minigioco, dita e tasti quello che è tenuto giù (sordi: le dita giù da
+//   quando il minigioco non ascoltava), prima = primo incontro
 //   con quel boss (suggerimento). t = ms passati nella fase, accumulati SOLO col
 //   dt dei passi (dinoAvanza): in pausa o in background il boss è fermo come
 //   la corsa. Mai performance.now, setTimeout o dino.amb.tempo (girano anche
@@ -43,10 +44,14 @@
 //            apre sul minigioco. Con «riduci movimento» è un taglio netto.
 //   gioco    il minigioco, nello stesso canvas e alla stessa scala; al
 //            massimo BOSS_TEMPO, poi «pari». Finisce con vinto/perso/pari.
-//   esito    la gag finale (BOSS_ESITO), disegnata dal minigioco.
-//   esce     la tendina al contrario, sulla corsa. Poi dinoBossFine: la
-//            conseguenza (BOSS_PREMIO e BOSS_REGALO, o BOSS_SCONFITTA), la
-//            grazia (BOSS_GRAZIA, il dino sfarfalla da solo), la strada libera
+//   esce     la tendina al contrario: chiude sul minigioco, riapre sulla
+//            strada col boss dov'era all'incontro.
+//   esito    la gag sulla strada (BOSS_ESITO; Vitto 09/10: «fuori dal
+//            minigame, come l'incontro»), vedi LE GAG SULLA STRADA: vittoria
+//            (Godzilla e il soffio), sconfitta (il dino scagliato via), pari.
+//            Il risultato a cartellone. Poi dinoBossFine: la conseguenza
+//            (BOSS_PREMIO e BOSS_REGALO, o BOSS_SCONFITTA), la grazia
+//            (BOSS_GRAZIA, il dino sfarfalla da solo), la strada libera
 //            davanti (BOSS_RIPRESA) e la soglia dopo.
 //
 // · Innesti nel gioco (pochi, e tutti cercano «dino.boss» o «dinoBoss»):
@@ -67,8 +72,13 @@
 //                fuoco altrove: dinoBossFreccia) vanno al minigioco. I
 //                rilasci arrivano sempre, anche in pausa; alla ripresa e al
 //                blur della finestra si lascia tutto (dinoBossMolla). Nei
-//                primi BOSS_SORDO ms i tocchi non contano. dinoTocca non fa
-//                saltare né caricare Godzilla col boss arrivato.
+//                primi BOSS_SORDO ms i tocchi non contano; un dito tenuto
+//                giù da allora (o dalla pausa) conta dal primo movimento,
+//                come se fosse appena andato giù (b.sordi): il pollice
+//                appoggiato sui comandi durante la tendina non va rialzato.
+//                Un rilascio in pausa arriva senza coordinate (non è un
+//                tocco). dinoTocca non fa saltare né caricare Godzilla col
+//                boss arrivato.
 //   azzerare     dinoNuovaPartita e dinoPrepara (ingresso, cambio modalità).
 //   dinoDom      la classe .boss sul cabinato nasconde OFFLINE MODE mentre
 //                il minigioco ha bisogno di tutta l'altezza.
@@ -92,17 +102,20 @@
 //     passo(g, dt) → null | "vinto" | "perso", disegna(c, g, x0, y0),
 //     dito(g, { tipo: "giu" | "muovi" | "su", x, y, id }),
 //     tasto(g, { tasto: "sinistra" | "destra" | "su" | "giu" | "azione", giu }),
-//     esito(c, g, x0, y0, k, esito) }
+//     e per la strada: strada, sopra, incontroPasso (l'incontro), larga,
+//     ritratto, gag, gagPasso (la gag dell'esito: vedi LE GAG SULLA STRADA) }
 //   Coordinate tutte loro (unità del campo, celle a 1 unità con dinoTela):
 //   il campo si ricentra a ogni fotogramma da dino.w e dino.h, così rotazione,
 //   schermo intero e Home desktop non rompono niente. Il dito arriva già in
-//   unità del campo. Un solo dito basta: zone, tocco, tieni premuto, trascina.
+//   unità del campo. Un solo dito basta: zone, tocco, tieni premuto, trascina
+//   (lo scimmione ha levetta e pulsante, ma col dito solo il pulsante si
+//   ricorda la levetta appena lasciata).
 //   Vincoli: la scala è quella del gioco e l'altezza è il limite (162 unità
 //   nel banner e in Home, 168 a schermo intero), quindi campo al massimo
 //   ~272 × 150 (iPhone da 375 pt: banner largo 295; a schermo intero la ×
 //   copre l'angolo in alto a destra), misure pari (celle su pixel interi).
 //   Un errore nel minigioco non blocca il gioco: il boss finisce «pari»
-//   (dinoBossProva). disegna ed esito non cambiano mai lo stato: girano
+//   (dinoBossProva). disegna, strada, sopra e gag non cambiano mai lo stato: girano
 //   anche in pausa e al resize. Fisica e passi propri, a tick fisso
 //   di 1000/60 con accumulatore (mai DINO_G né dinoSpinta: il salto del dino
 //   è alto 58 unità). Quello che cambia (puntini mangiati) su una tela
@@ -121,8 +134,8 @@ const BOSS_ORDINE = ["invasori", "scimmione", "labirinto"]; // Vitto 08/10: dal 
 const BOSS_ARRIVO = 1600; // ms: la corsa frena e il boss entra
 const BOSS_INCONTRO = 2000; // ms: la scena d'incontro col titolo
 const BOSS_TENDINA = 1000; // ms: chiude a nero e riapre (metà e metà)
-const BOSS_TEMPO = 60000; // ms: tetto del minigioco, poi «pari»
-const BOSS_ESITO = 1800; // ms: la gag di vittoria o sconfitta
+const BOSS_TEMPO = 60000; // ms: tetto del minigioco, poi «pari» (il labirinto ne tiene un suo orologio uguale: labPasso)
+const BOSS_ESITO = 2200; // ms: la gag di vittoria o sconfitta, sulla strada (Vitto 09/10)
 const BOSS_GRAZIA = 2000; // ms di corsa senza morire, al ritorno
 const BOSS_RIPRESA = 1500; // ms di strada libera davanti, al ritorno
 const BOSS_FRENATA = 900; // ms dell'arrivo in cui la corsa rallenta fino a fermarsi
@@ -171,10 +184,6 @@ const BOSS_SEGNAPOSTO = {
     dinoScritta(c, "Minigioco", x + 100, y + 10, "#f4f4f5", DINO_FONT_PICCOLO);
     dinoScritta(c, "Perdi", x + 50, y + 52, "#ff3b3b", DINO_FONT_PICCOLO);
     dinoScritta(c, "Vinci", x + 150, y + 52, "#7dff4a", DINO_FONT_PICCOLO);
-  },
-  esito: (c, g, x, y, k, esito) => {
-    const testo = esito === "vinto" ? "Vinto!" : esito === "perso" ? "Perso!" : "Tempo!";
-    dinoScritta(c, testo, x + 100, y + 48, esito === "vinto" ? "#7dff4a" : "#ff5fd2");
   },
 };
 // —— INVASORI (fase 3). Tributo fedele al cabinato degli invasori alieni:
@@ -840,103 +849,79 @@ function invSopra(c, b, W) {
   }
 }
 
-// —— le gag dell'esito (k da 0 a 1 in BOSS_ESITO) ——
-function invEsito(c, g, x0, y0, k, esito) {
-  const vinto = esito === "vinto";
-  invDisegna(c, g, x0, y0, { gag: true, senzaNave: true, senzaAlieni: esito === "pari" && k > 0.5, senzaScoppi: k > 0.25, alieniAlfa: vinto ? 1 : Math.max(0.25, 1 - k * 4) });
-  // le scritte con l'ombra sotto: si leggono anche sopra alieni e stelle
-  const scritta = (testo, y, colore) => {
-    dinoScritta(c, testo, x0 + INV_W / 2, y + 2, "#141414");
-    dinoScritta(c, testo, x0 + INV_W / 2, y, colore);
-  };
-  const cx = x0 + g.x;
-  const madre = (alto) => invSprite(c, "madre", INV_DISCO, { "#": "#ff3b3b" }, x0 + INV_W / 2 - 32, y0 + alto, 4);
-  if (vinto) {
-    // il dino diventa Godzilla (lampo bianco), cresce, e col soffio atomico
-    // tira giù l'astronave madre che era venuta a vendicarli
-    const righe = dinoGodzillaRighe(0, k > 0.35);
-    const sc = Math.min(1, 0.35 + k * 2);
-    const gw = Math.round(GODZILLA_W * sc);
-    const gh = Math.round(GODZILLA_H * sc);
-    const gx = Math.round(cx - gw / 2);
-    const gy = y0 + INV_TERRA - gh;
-    if (k < 0.75) madre(Math.round(-30 + Math.min(1, k * 3) * 40));
-    c.drawImage(dinoTela(`godz|0|${k > 0.35}|${k < 0.08 ? "b" : ""}`, righe, k < 0.08 ? Object.fromEntries(Object.keys(GODZILLA_COLORI).map((ch) => [ch, "#ffffff"])) : GODZILLA_COLORI), gx, gy, gw, gh);
-    if (k > 0.38 && k < 0.75) {
-      // il soffio: dalla bocca all'astronave, a quadretti che si sommano alla luce
-      const bx = gx + gw * 0.85;
-      const by = gy + gh * 0.12;
-      const tx = x0 + INV_W / 2;
-      const ty = y0 + 20;
-      c.save();
-      c.globalCompositeOperation = "lighter";
-      for (let l = 0; l <= 1; l += 0.02) {
-        const px = Math.round(bx + (tx - bx) * l);
-        const py = Math.round(by + (ty - by) * l);
-        c.fillStyle = "rgba(80, 200, 255, 0.35)";
-        c.fillRect(px - 3, py - 3, 6, 6);
-        c.fillStyle = "rgba(240, 253, 255, 0.8)";
-        c.fillRect(px - 1, py - 1, 2, 2);
-      }
-      c.restore();
-    }
-    if (k >= 0.7) {
-      // l'astronave madre esplode in mille pezzi
-      const q = (k - 0.7) / 0.3;
-      for (let i = 0; i < 28; i++) {
-        const a = (i / 28) * 6.283;
-        const r = 4 + q * (30 + (i % 5) * 6);
-        c.fillStyle = i % 3 ? "#ff3b3b" : i % 2 ? "#ffd23f" : "#ffffff";
-        c.fillRect(Math.round(x0 + INV_W / 2 + Math.cos(a) * r), Math.round(y0 + 24 + Math.sin(a) * r * 0.6), 2, 2);
-      }
-      if (k > 0.8) scritta("Spazzati via!", y0 + 60, "#7dff4a");
-    }
-  } else if (esito === "perso") {
-    // l'astronave madre scende, il raggio traente agguanta il dino e lo
-    // scaglia lontanissimo: una stellina in alto a destra
-    const alto = Math.round(-30 + Math.min(1, k / 0.25) * 40);
-    madre(alto);
-    let nx = cx;
-    let ny = y0 + INV_NAVE_Y - 4;
-    let sc = 1;
-    if (k > 0.25 && k < 0.6) {
-      const q = (k - 0.25) / 0.35;
-      // il raggio traente: righe da 2 unità, bande più chiare che salgono
-      const cima = y0 + DINO_CELLA * Math.round((alto + 28) / DINO_CELLA);
-      const sale = DINO_CELLA * Math.floor((k * BOSS_ESITO) / 40);
-      for (let y = cima; y < ny + 10; y += 2) {
-        const w = 10 + ((y - cima) / (ny - cima + 10)) * 30;
-        c.fillStyle = (y - cima + sale) % 12 < 4 ? "rgba(214, 255, 120, 0.5)" : "rgba(255, 210, 63, 0.26)";
-        c.fillRect(DINO_CELLA * Math.round((x0 + INV_W / 2 - w / 2 + (cx - x0 - INV_W / 2) * ((y - y0) / INV_H)) / DINO_CELLA), y, DINO_CELLA * Math.round(w / DINO_CELLA), 2);
-      }
-      nx = cx + (x0 + INV_W / 2 - cx) * q * 0.6;
-      ny = ny - q * 50;
-    } else if (k >= 0.6) {
-      const q = Math.min(1, (k - 0.6) / 0.25);
-      nx = x0 + INV_W / 2 + q * (INV_W / 2 - 6);
-      ny = y0 + INV_NAVE_Y - 54 - q * 70;
-      sc = Math.max(0.15, 1 - q);
-    }
-    if (k < 0.85) {
-      c.save();
-      c.translate(Math.round(nx), Math.round(ny));
-      c.rotate(k > 0.6 ? (k - 0.6) * 30 : 0);
-      c.drawImage(dinoTela("inv|nave0", INV_NAVE[0], INV_NAVE_COLORI), -9 * sc, -6 * sc, 18 * sc, 13 * sc);
-      c.restore();
-    } else {
-      // la stellina dove è sparito («ding»)
-      const q = (k - 0.85) / 0.15;
-      const r = q < 0.5 ? 1 + q * 6 : 4 - (q - 0.5) * 6;
-      c.fillStyle = "#ffffff";
-      c.fillRect(x0 + INV_W - 8 - r, y0 + 8, r * 2 + 1, 1);
-      c.fillRect(x0 + INV_W - 8, y0 + 8 - r, 1, r * 2 + 1);
-    }
-    if (k > 0.4) scritta("Rapito!", y0 + 84, "#ff5fd2");
-  } else {
-    // tempo scaduto: gli alieni se ne vanno e il dino resta lì
-    invSprite(c, "nave0", INV_NAVE[0], INV_NAVE_COLORI, cx - 9, y0 + INV_NAVE_Y - 4);
-    scritta("Tempo!", y0 + 60, "#ffd23f");
+// —— la gag sulla strada (Vitto 09/10: fuori dal minigioco). Vittoria: quella
+// di serie (Godzilla e il soffio sull'alieno). Sconfitta: l'astronave madre
+// scende sopra il dino, il raggio traente lo tira su e se ne va lontano ——
+const INV_ARROSTO = { "#": "#2a3018" };
+function invRitratto(c, b, x, terra, stato) {
+  const s = INV_ALIENO_SCALA;
+  const fermo = dinoMotoRidotto();
+  const posa = stato.esulta && !fermo ? Math.floor(b.t / 90) % 2 : 0;
+  const su = stato.esulta && !fermo ? -(Math.floor(b.t / 90) % 2) * DINO_CELLA : 0;
+  const righe = INV_GRANCHIO[posa];
+  const alto = righe.length * s;
+  c.fillStyle = "rgba(0, 0, 0, 0.35)";
+  c.fillRect(x + 6, terra - 1, righe[0].length * s - 12, 2);
+  c.imageSmoothingEnabled = false;
+  c.drawImage(dinoTela(`inv|grande${posa}${stato.arrosto ? "a" : ""}`, righe, stato.arrosto ? INV_ARROSTO : { "#": "#7dff4a" }), x, terra - alto - 8 + su, righe[0].length * s, alto);
+}
+const INV_MADRE_SCENDE = 0.2; // la madre è arrivata sopra il dino
+const INV_RAGGIO_A = 0.58; // il dino è dentro
+const INV_VIA = 0.62; // la madre riparte
+function invGag(c, b, terra, W, k) {
+  if (b.esito !== "perso") {
+    dinoBossGagDiSerie(c, b, terra, W, k);
+    return;
   }
+  const larga = INV_GRANCHIO[0][0].length * INV_ALIENO_SCALA;
+  invRitratto(c, b, dinoBossPosto(b, W, larga), terra, { arrosto: false, esulta: k > 0.1 });
+  const dx = dinoX();
+  // l'astronave madre: il disco grande, sopra il dino
+  const mw = INV_DISCO[0].length * 4;
+  const mh = INV_DISCO.length * 4;
+  let mx = dx + 14 - mw / 2;
+  let my = terra - 118;
+  if (k < INV_MADRE_SCENDE) my = -mh + (my + mh) * (k / INV_MADRE_SCENDE);
+  if (k > INV_VIA) {
+    const q = Math.min(1, (k - INV_VIA) / 0.16);
+    mx += (W - 20 - mx) * q * q;
+    my -= 90 * q * q;
+  }
+  // il raggio traente: un cono giallo a righe dal disco alla strada
+  if (k > INV_MADRE_SCENDE && k < INV_RAGGIO_A + 0.03) {
+    const cima = my + mh;
+    for (let y = cima; y < terra; y += 2) {
+      const q = (y - cima) / (terra - cima);
+      const w = Math.round(16 + 32 * q);
+      c.fillStyle = `rgba(255, 210, 63, ${(Math.floor(y / 2) + Math.floor(k * 40)) % 3 ? 0.14 : 0.26})`;
+      c.fillRect(Math.round(dx + 14 - w / 2), Math.round(y), w, 1);
+    }
+  }
+  if (my + mh > 0 && mx < W) {
+    c.imageSmoothingEnabled = false;
+    c.drawImage(dinoTela("inv|disco", INV_DISCO, { "#": "#ff3b3b" }), Math.round(mx), Math.round(my), mw, mh);
+  }
+  // il dino: a terra, poi su nel raggio girando, poi dentro
+  if (k < INV_MADRE_SCENDE + 0.05) dinoBossGagDino(c, dx, terra);
+  else if (k < INV_RAGGIO_A) {
+    const q = (k - INV_MADRE_SCENDE - 0.05) / (INV_RAGGIO_A - INV_MADRE_SCENDE - 0.05);
+    dinoBossGagDino(c, dx, terra - (terra - my - mh) * q, { scala: 1 - q * 0.4, giro: dinoMotoRidotto() ? 0 : q * 6 });
+  }
+  if (k > GAG_STELLA - 0.04 && k < GAG_STELLA + 0.06) dinoBossGagStella(c, W, (k - GAG_STELLA + 0.04) / 0.1);
+  // «riprendi»: lo lasciano cadere giù dove correva
+  if (BOSS_SCONFITTA !== "muori" && k > 0.86) dinoBossGagDino(c, dx, terra - (1 - (k - 0.86) / 0.14) * 120);
+}
+function invGagPasso(b, k, una) {
+  if (b.esito !== "perso") {
+    dinoBossGagPassoDiSerie(b, k, una);
+    return;
+  }
+  una("madre", 0, () => dinoSuono("inv_ufo"));
+  una("raggio", INV_MADRE_SCENDE + 0.05, () => {
+    dinoSuono("inv_colpito");
+    dinoVibra("HEAVY");
+  });
+  una("via", INV_VIA, () => dinoSuono("inv_ufo"));
 }
 
 const BOSS_INVASORI = {
@@ -961,7 +946,10 @@ const BOSS_INVASORI = {
     // frecce per muoversi; spazio (o invio, o su) spara subito
     if (ev.giu && (ev.tasto === "azione" || ev.tasto === "su")) g.ricarica = 0;
   },
-  esito: invEsito,
+  larga: INV_GRANCHIO[0][0].length * INV_ALIENO_SCALA,
+  ritratto: invRitratto,
+  gag: invGag,
+  gagPasso: invGagPasso,
   strada: invStrada,
   sopra: invSopra,
   incontroPasso: invIncontroPasso,
@@ -1122,6 +1110,7 @@ function dinoBossChiama(tipo) {
     esito: null, // "vinto" | "perso" | "pari"
     gioco: null, // lo stato del minigioco (BOSS_GIOCHI[tipo].nuovo)
     dita: new Set(), // pointerId delle dita giù nel minigioco
+    sordi: new Set(), // dita giù quando il minigioco non ascoltava: contano dal primo movimento
     tasti: new Set(), // tasti tenuti nel minigioco ("sinistra", "azione"...)
     prima: !visti[tipo], // prima volta: il suggerimento
   };
@@ -1204,13 +1193,21 @@ function dinoBossPasso(dt) {
   } else if (b.fase === "gioco") {
     const esito = dinoBossProva(b, () => gioco.passo(b.gioco, dt)) || (b.guasto || b.t >= BOSS_TEMPO ? "pari" : null);
     if (esito) {
+      // la gag non è più nel minigioco (Vitto 09/10: «le scene di vittoria
+      // o sconfitta le volevo fuori dal minigame, come l'incontro»): si torna
+      // sulla strada con la tendina e lì il dino e il boss la recitano
       b.esito = esito;
+      dinoBossFase(b, "esce");
+    }
+  } else if (b.fase === "esce") {
+    if (b.t >= dinoBossTendina()) {
+      dino.y = 0; // l'incontro può averlo fatto volare via
+      dino.vy = 0;
       dinoBossFase(b, "esito");
     }
   } else if (b.fase === "esito") {
-    if (b.t >= BOSS_ESITO) dinoBossFase(b, "esce");
-  } else if (b.fase === "esce") {
-    if (b.t >= dinoBossTendina()) dinoBossFine(b);
+    dinoBossGagPasso(b);
+    if (b.t >= BOSS_ESITO) dinoBossFine(b);
   }
 }
 
@@ -1263,7 +1260,7 @@ function dinoBossCopre() {
   const b = dino.boss;
   if (!b) return false;
   const meta = dinoBossTendina() / 2;
-  return b.fase === "gioco" || b.fase === "esito" || (b.fase === "entra" && b.t >= meta) || (b.fase === "esce" && b.t < meta);
+  return b.fase === "gioco" || (b.fase === "entra" && b.t >= meta) || (b.fase === "esce" && b.t < meta);
 }
 
 /** Dove sta il campo del minigioco: centrato nel banner (a schermo intero
@@ -1284,21 +1281,36 @@ function dinoBossAscolta(b) {
 
 /** Il dito nel minigioco, in unità del campo, con il suo id (più dita). Si
  * seguono solo le dita andate giù nel minigioco: il mouse sospeso, o un dito
- * partito dalla × o dalla corsa, non muovono niente. Il rilascio arriva
- * sempre, anche in pausa: un dito lasciato lì non resta giù per sempre.
- * true = preso (solo per «giu»). */
+ * partito dalla × o dalla corsa, non muovono niente. Un dito andato giù
+ * mentre il minigioco non ascoltava (tendina, BOSS_SORDO) o rimasto giù
+ * dalla pausa (dinoBossMolla) si mette da parte in b.sordi: al primo
+ * movimento col minigioco in ascolto arriva come «giu». Il rilascio arriva
+ * sempre, anche in pausa (lì senza coordinate: non è un tocco): un dito
+ * lasciato lì non resta giù per sempre. true = preso (solo per «giu»). */
 function dinoBossPuntatore(tipo, e) {
   const b = dino.boss;
   if (!b || !b.gioco) return false;
   if (tipo === "giu") {
-    if (!dinoBossAscolta(b)) return b.fase === "gioco" && dino.stato === "corsa"; // sordo: preso, senza effetto
+    if (!dinoBossAscolta(b)) {
+      const tiene = (b.fase === "entra" || b.fase === "gioco") && dino.stato === "corsa";
+      if (tiene && !(e.button > 0)) b.sordi.add(e.pointerId);
+      return b.fase === "gioco" && dino.stato === "corsa"; // sordo: preso, senza effetto
+    }
     if (e.button > 0) return true; // tasto destro o centrale del mouse
     b.dita.add(e.pointerId);
     dinoSuonoSveglia(); // dentro il gesto: iOS sblocca l'audio solo qui
-  } else if (!b.dita.has(e.pointerId)) {
-    return false;
   } else if (tipo === "su") {
+    b.sordi.delete(e.pointerId);
+    if (!b.dita.has(e.pointerId)) return false;
     b.dita.delete(e.pointerId);
+  } else if (!b.dita.has(e.pointerId)) {
+    // un dito tenuto da prima: conta adesso, come appena giù (il mouse
+    // solo col tasto ancora premuto: il suo rilascio può essere andato perso)
+    if (!b.sordi.has(e.pointerId) || !dinoBossAscolta(b)) return false;
+    if (e.pointerType === "mouse" && !(e.buttons & 1)) return false;
+    b.sordi.delete(e.pointerId);
+    b.dita.add(e.pointerId);
+    tipo = "giu";
   } else if (dino.stato !== "corsa") {
     return false;
   }
@@ -1308,8 +1320,10 @@ function dinoBossPuntatore(tipo, e) {
   if (!r || !r.width || !r.height || !gioco.dito) return true;
   // il rettangolo è già ingrandito (schermo intero, Home): si divide per lui
   const campo = dinoBossCampo(b);
-  const x = ((e.clientX - r.left) / r.width) * dino.w - campo.x;
-  const y = ((e.clientY - r.top) / r.height) * dino.h - campo.y;
+  // il rilascio in pausa non è un tocco: senza coordinate, come dinoBossMolla
+  const fermo = tipo === "su" && dino.stato !== "corsa";
+  const x = fermo ? NaN : ((e.clientX - r.left) / r.width) * dino.w - campo.x;
+  const y = fermo ? NaN : ((e.clientY - r.top) / r.height) * dino.h - campo.y;
   dinoBossProva(b, () => gioco.dito(b.gioco, { tipo, x, y, id: e.pointerId }));
   return true;
 }
@@ -1342,13 +1356,15 @@ function dinoBossTasto(e, giu) {
 }
 
 /** Lascia tutte le dita e i tasti tenuti nel minigioco: alla ripresa dalla
- * pausa e quando la finestra perde il fuoco (Alt-Tab: il keyup non arriva). */
+ * pausa e quando la finestra perde il fuoco (Alt-Tab: il keyup non arriva).
+ * Le dita forse ancora giù passano fra i sordi: se si muovono, ricontano. */
 function dinoBossMolla() {
   const b = dino.boss;
   if (!b || !b.gioco) return;
   const gioco = BOSS_GIOCHI[b.tipo];
   b.dita.forEach((id) => gioco.dito && dinoBossProva(b, () => gioco.dito(b.gioco, { tipo: "su", x: NaN, y: NaN, id })));
   b.tasti.forEach((tasto) => gioco.tasto && dinoBossProva(b, () => gioco.tasto(b.gioco, { tasto, giu: false })));
+  b.dita.forEach((id) => b.sordi.add(id));
   b.dita.clear();
   b.tasti.clear();
 }
@@ -1390,8 +1406,7 @@ function dinoBossScena(c, W, H) {
     // al resto del disegno (e la corsa ne lascia: lo smoothing lo rimette)
     c.save();
     c.imageSmoothingEnabled = false;
-    if (b.fase === "esito") dinoBossProva(b, () => gioco.esito(c, b.gioco, r.x, r.y, Math.min(1, b.t / BOSS_ESITO), b.esito));
-    else dinoBossProva(b, () => gioco.disegna(c, b.gioco, r.x, r.y));
+    dinoBossProva(b, () => gioco.disegna(c, b.gioco, r.x, r.y));
     c.restore();
     if (b.fase === "gioco" && b.prima && b.t < 3000 && (dinoMotoRidotto() || Math.floor(b.t / 450) % 3 !== 2)) {
       dinoScritta(c, gioco.aiuto, W / 2, r.y + r.h - 12, "#bdf6ff", DINO_FONT_PICCOLO);
@@ -1416,8 +1431,15 @@ function dinoBossPosto(b, W, larga = BOSS_SAGOMA[0].length * BOSS_SAGOMA_SCALA) 
  * all'incontro si batte il petto. Con «riduci movimento» fermo. */
 function dinoBossStrada(c, terra) {
   const b = dino.boss;
-  if (!b || (b.fase !== "arrivo" && b.fase !== "incontro" && !(b.fase === "entra" && !dinoBossCopre()))) return;
+  if (!b) return;
   const W = dino.w;
+  // al ritorno (tendina che si riapre, poi la gag) la scena è della gag
+  if (b.fase === "esito" || (b.fase === "esce" && !dinoBossCopre())) {
+    const k = b.fase === "esito" ? Math.min(1, b.t / BOSS_ESITO) : 0;
+    dinoBossProva(b, () => dinoBossGag(c, b, terra, W, k));
+    return;
+  }
+  if (b.fase !== "arrivo" && b.fase !== "incontro" && !(b.fase === "entra" && !dinoBossCopre())) return;
   const gioco = BOSS_GIOCHI[b.tipo];
   if (gioco.strada) {
     dinoBossProva(b, () => gioco.strada(c, b, terra, W));
@@ -1502,7 +1524,231 @@ function dinoBossSopra(c, W, H) {
       dinoCartellone(c, W, { testo: g.titolo, sotto: g.sotto, colore: g.colore }, dinoMotoRidotto() ? Math.max(k, 400) : k);
     }
   }
+  // la gag: il risultato a cartellone, come il titolo dell'incontro
+  if (b.fase === "esito") {
+    const k = b.t - BOSS_RISULTATO_DA;
+    const r = BOSS_RISULTATI[b.esito] || BOSS_RISULTATI.pari;
+    if (k >= 0 && k < ANNUNCIO_DURA) dinoCartellone(c, W, r, dinoMotoRidotto() ? Math.max(k, 400) : k);
+  }
   dinoBossVelo(c, W, H);
+}
+
+// —— LE GAG SULLA STRADA (Vitto 09/10: «le scene di vittoria o sconfitta le
+// volevo fuori dal minigame, come l'incontro che avviene nel gioco dino»).
+// Finito il minigioco la tendina riporta sulla strada, col boss dove stava
+// all'incontro, e lì dura BOSS_ESITO la gag; poi si corre (o game over).
+// Mentre la tendina si riapre e durante la gag il dino della corsa non si
+// disegna (dinoBossNascondeDino, in dinoDisegna): lo disegna la gag, che lo
+// fa diventare Godzilla, volare via, ecc. Ogni boss può dare:
+//   larga                    quanto è largo sulla strada (per dinoBossPosto)
+//   ritratto(c, b, x, terra, stato)  il boss sulla strada, coi piedi a terra
+//            e il fianco sinistro a x; stato = { arrosto, esulta }
+//   gag(c, b, terra, W, k)   una gag tutta sua (k da 0 a 1), al posto di
+//            quella di serie (dinoBossGagDiSerie, che può anche richiamare)
+//   gagPasso(b, k)           i suoi suoni/vibrazioni nel passo
+// Gli aiuti qui sotto (dino, Godzilla, soffio, botto, volo, stellina) sono
+// per tutte. Disegno puro: niente stato cambiato, tempi solo da k. ——
+const BOSS_RISULTATO_DA = 150; // ms della gag in cui entra il cartellone del risultato
+const BOSS_RISULTATI = {
+  vinto: { testo: "Vittoria!", sotto: `Boss battuto  +${BOSS_PREMIO}`, colore: "#7dff4a" },
+  perso: { testo: "Sconfitta!", sotto: "Te le ha suonate", colore: "#ff3b3b" },
+  pari: { testo: "Tempo!", sotto: "Il boss se ne va", colore: "#ffd23f" },
+};
+// i momenti della gag di serie (frazioni di BOSS_ESITO)
+const GAG_LAMPO = 0.08; // il dino lampeggia bianco
+const GAG_CRESCE = 0.14; // diventa Godzilla a scatti
+const GAG_SOFFIO = 0.36; // spara il soffio atomico
+const GAG_BOTTO = 0.6; // il boss salta in aria
+const GAG_TORNA = 0.88; // torna dinosauro
+const GAG_CARICA = 0.22; // (sconfitta) il boss carica fino al dino
+const GAG_VOLA = 0.72; // il dino sparisce in cielo
+const GAG_STELLA = 0.86; // la stellina dove è sparito
+
+/** Il dino della corsa disegnato dalla gag: lo nasconde dinoDisegna. */
+function dinoBossNascondeDino() {
+  const b = dino.boss;
+  return !!b && (b.fase === "esito" || (b.fase === "esce" && !dinoBossCopre()));
+}
+
+/** Il dino fermo, coi piedi in (x, piedi): scala e giro attorno al centro,
+ * o tutto bianco (il lampo della trasformazione). */
+function dinoBossGagDino(c, x, piedi, { scala = 1, giro = 0, bianco = false } = {}) {
+  const lato = DINO_SPRITE[0].length;
+  c.save();
+  c.translate(Math.round(x + lato / 2), Math.round(piedi - lato / 2));
+  if (giro) c.rotate(giro);
+  if (scala !== 1) c.scale(scala, scala);
+  if (bianco) {
+    const righe = dinoRighe(0, 0);
+    const colori = Object.fromEntries(Object.keys(dinoColori(DINO_ARANCIO)).map((ch) => [ch, "#ffffff"]));
+    c.imageSmoothingEnabled = false;
+    c.drawImage(dinoTela("boss|dinobianco", righe, colori), -lato / 2, -lato / 2, lato, righe.length);
+  } else dinoDisegnaDino(c, { x0: -lato / 2, y0: -lato / 2, forma: null, corre: false, giu: 0, sbatte: false, sfarfalla: false });
+  c.restore();
+}
+
+/** Godzilla coi piedi in (x, piedi), alla scala data; torna dove ha la
+ * bocca (per il soffio). */
+function dinoBossGagGodzilla(c, x, piedi, { scala = 1, aperta = false, bianco = false } = {}) {
+  const g = GODZILLA_SCALA * scala;
+  const w = Math.round(GODZILLA_W * g);
+  const h = Math.round(GODZILLA_H * g);
+  const y = Math.round(piedi - h);
+  const righe = dinoGodzillaRighe(0, aperta);
+  const colori = bianco ? Object.fromEntries(Object.keys(GODZILLA_COLORI).map((ch) => [ch, "#ffffff"])) : GODZILLA_COLORI;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(dinoTela(`godz|0|${aperta}|${bianco ? "b" : ""}`, righe, colori), Math.round(x), y, w, h);
+  return { x: x + GODZILLA_BOCCA[0] * g, y: piedi - (GODZILLA_H - GODZILLA_BOCCA[1]) * g };
+}
+
+/** Il soffio atomico da (bx, by) a (tx, ty): alone blu, banda azzurra,
+ * anima bianca, anelli che corrono (come quello della corsa). */
+function dinoBossGagSoffio(c, bx, by, tx, ty, t) {
+  const lun = Math.max(1, Math.hypot(tx - bx, ty - by));
+  const cos = (tx - bx) / lun;
+  const sin = (ty - by) / lun;
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  for (let l = 0; l <= lun; l += 2) {
+    const x = Math.round(bx + cos * l);
+    const y = Math.round(by + sin * l);
+    const anello = (l - t * 0.5) % 22 > -4 && (l - t * 0.5) % 22 < 0;
+    c.fillStyle = "rgba(40, 110, 255, 0.08)";
+    c.fillRect(x - 6, y - 6, 12, 12);
+    c.fillStyle = anello ? "rgba(150, 230, 255, 0.45)" : "rgba(80, 200, 255, 0.32)";
+    c.fillRect(x - 3, y - 3, 6, 6);
+    c.fillStyle = "rgba(240, 253, 255, 0.7)";
+    c.fillRect(x - 1, y - 1, 2, 2);
+  }
+  c.restore();
+}
+
+/** Il botto: schegge che volano in cerchio e ricadono (q da 0 a 1). */
+function dinoBossGagBotto(c, cx, cy, q, colori = ["#ffffff", "#ffd23f", "#ff6a00", "#ff3b3b"]) {
+  if (q < 0.12) {
+    c.fillStyle = `rgba(255, 255, 255, ${(0.6 * (1 - q / 0.12)).toFixed(2)})`;
+    c.fillRect(Math.round(cx - 30), Math.round(cy - 30), 60, 60);
+  }
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * 6.283 + (i % 3) * 0.2;
+    const r = 4 + q * (34 + (i % 5) * 8);
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r * 0.7 + q * q * 30; // ricadono
+    c.fillStyle = colori[i % colori.length];
+    c.fillRect(DINO_CELLA * Math.round(x / DINO_CELLA), DINO_CELLA * Math.round(y / DINO_CELLA), DINO_CELLA, DINO_CELLA);
+  }
+}
+
+/** Il dino scagliato via: da dove sta (x0, piedi) verso l'alto a destra,
+ * fuori dal banner, girando e rimpicciolendo (q da 0 a 1). */
+function dinoBossGagVolo(c, x0, piedi, q, W) {
+  const tx = W - 16;
+  const ty = 6;
+  const x = x0 + (tx - x0) * q;
+  const y = piedi + (ty - piedi) * q - Math.sin(q * Math.PI) * 30;
+  dinoBossGagDino(c, x, y, { scala: Math.max(0.15, 1 - q * 0.9), giro: dinoMotoRidotto() ? 0 : q * 14 });
+}
+
+/** La stellina «ding» dove il dino è sparito (q da 0 a 1). */
+function dinoBossGagStella(c, W, q) {
+  const r = Math.round(q < 0.5 ? 1 + q * 8 : 5 - (q - 0.5) * 8);
+  if (r <= 0) return;
+  c.fillStyle = "#ffffff";
+  c.fillRect(W - 16 - r, 6, r * 2 + 1, 1);
+  c.fillRect(W - 16, 6 - r, 1, r * 2 + 1);
+}
+
+/** Il boss di serie (segnaposto) sulla strada, per la gag. */
+function dinoBossRitrattoDiSerie(c, b, x, terra, stato) {
+  const righe = stato.esulta ? BOSS_SAGOMA_SU : BOSS_SAGOMA;
+  const colori = stato.arrosto ? Object.fromEntries(Object.keys(BOSS_SAGOMA_COLORI).map((ch) => [ch, ch === "y" || ch === "w" ? "#ffd23f" : "#1a1a1a"])) : BOSS_SAGOMA_COLORI;
+  const sc = BOSS_SAGOMA_SCALA;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(dinoTela(`boss|sagoma|${stato.esulta ? 1 : 0}|${stato.arrosto ? "a" : ""}`, righe, colori), x, terra - righe.length * sc, righe[0].length * sc, righe.length * sc);
+}
+
+/** La gag: quella del boss se ce l'ha, altrimenti quella di serie. */
+function dinoBossGag(c, b, terra, W, k) {
+  const gioco = BOSS_GIOCHI[b.tipo];
+  if (gioco.gag) gioco.gag(c, b, terra, W, k);
+  else dinoBossGagDiSerie(c, b, terra, W, k);
+}
+
+/** La gag di serie. Vittoria: il dino lampeggia, diventa Godzilla a scatti,
+ * col soffio atomico manda il boss in mille pezzi e torna dinosauro.
+ * Sconfitta: il boss carica, il dino vola via lontanissimo (stellina); con
+ * BOSS_SCONFITTA "riprendi" ricade giù. Tempo scaduto: il boss se ne va. */
+function dinoBossGagDiSerie(c, b, terra, W, k) {
+  const gioco = BOSS_GIOCHI[b.tipo];
+  const larga = gioco.larga || BOSS_SAGOMA[0].length * BOSS_SAGOMA_SCALA;
+  const fermo = dinoMotoRidotto();
+  let x = dinoBossPosto(b, W, larga);
+  const ritratto = (xx, stato) => (gioco.ritratto ? gioco.ritratto(c, b, Math.round(xx), terra, stato) : dinoBossRitrattoDiSerie(c, b, Math.round(xx), terra, stato));
+  const dx = dinoX();
+  if (b.esito === "vinto") {
+    // il boss: trema sotto il soffio, poi salta in aria
+    if (k < GAG_BOTTO) {
+      const trema = !fermo && k > GAG_SOFFIO ? (Math.floor(k * 200) % 2 ? DINO_CELLA : -DINO_CELLA) : 0;
+      ritratto(x + trema, { arrosto: k > GAG_SOFFIO + 0.08 && Math.floor(k * 60) % 2 === 0, esulta: false });
+    } else if (k < GAG_BOTTO + 0.3) dinoBossGagBotto(c, x + larga / 2, terra - 24, (k - GAG_BOTTO) / 0.3);
+    // il dino
+    if (k < GAG_LAMPO) dinoBossGagDino(c, dx, terra);
+    else if (k < GAG_CRESCE) dinoBossGagDino(c, dx, terra, { bianco: Math.floor(k * 90) % 2 === 0 });
+    else if (k < GAG_TORNA) {
+      const q = Math.min(1, (k - GAG_CRESCE) / 0.14);
+      const scala = fermo ? 1 : MUTA_CRESCE[Math.min(MUTA_CRESCE.length - 1, Math.floor(q * MUTA_CRESCE.length))] || 0.45;
+      const aperta = k > GAG_SOFFIO - 0.04;
+      const bocca = dinoBossGagGodzilla(c, dx, terra, { scala: Math.max(0.45, scala), aperta, bianco: q < 0.15 });
+      if (k > GAG_SOFFIO && k < GAG_BOTTO + 0.04) dinoBossGagSoffio(c, bocca.x, bocca.y, x + larga / 2, terra - 24, k * BOSS_ESITO);
+    } else dinoBossGagDino(c, dx, terra, { bianco: k < GAG_TORNA + 0.04 });
+  } else if (b.esito === "perso") {
+    // il boss carica fino al dino, poi resta lì ad esultare
+    const fin = Math.max(dx + 20, x - 40);
+    const q = Math.min(1, k / GAG_CARICA);
+    const bx = x + (fin - x) * q * q;
+    ritratto(bx, { arrosto: false, esulta: k > GAG_CARICA && Math.floor(k * 16) % 2 === 0 });
+    if (k < GAG_CARICA) dinoBossGagDino(c, dx, terra);
+    else if (k < GAG_VOLA) dinoBossGagVolo(c, dx, terra, (k - GAG_CARICA) / (GAG_VOLA - GAG_CARICA), W);
+    else if (k > GAG_STELLA && k < GAG_STELLA + 0.1) dinoBossGagStella(c, W, (k - GAG_STELLA) / 0.1);
+    // «riprendi»: ricade dal cielo dove correva, un po' stordito
+    if (BOSS_SCONFITTA !== "muori" && k > 0.86) dinoBossGagDino(c, dx, terra - (1 - (k - 0.86) / 0.14) * 120);
+  } else {
+    // tempo scaduto: il boss se ne va a destra, il dino resta lì
+    ritratto(x + (W + 10 - x) * Math.max(0, (k - 0.2) / 0.6), { arrosto: false, esulta: false });
+    dinoBossGagDino(c, dx, terra);
+  }
+}
+
+/** I suoni e le vibrazioni della gag, nel passo (mai nel disegno): una
+ * volta sola per momento. Il boss può dare i suoi (gagPasso). */
+function dinoBossGagPasso(b) {
+  const gioco = BOSS_GIOCHI[b.tipo];
+  const k = Math.min(1, b.t / BOSS_ESITO);
+  b.gagSuoni = b.gagSuoni || {};
+  const una = (chi, quando, fn) => {
+    if (k >= quando && !b.gagSuoni[chi]) {
+      b.gagSuoni[chi] = true;
+      fn();
+    }
+  };
+  if (gioco.gagPasso) dinoBossProva(b, () => gioco.gagPasso(b, k, una));
+  else dinoBossGagPassoDiSerie(b, k, una);
+}
+function dinoBossGagPassoDiSerie(b, k, una) {
+  if (b.esito === "vinto") {
+    una("trasforma", GAG_LAMPO, () => dinoSuono("trasforma"));
+    una("soffio", GAG_SOFFIO, () => dinoSuono("soffio"));
+    una("botto", GAG_BOTTO, () => {
+      dinoSuono("scoppio");
+      dinoVibra("HEAVY");
+    });
+    una("torna", GAG_TORNA, () => dinoSuono("torna"));
+  } else if (b.esito === "perso") {
+    una("botta", GAG_CARICA, () => {
+      dinoSuono("scoppio");
+      dinoVibra("HEAVY");
+    });
+  }
 }
 
 /** La tendina «da battaglia» (fase 3): tre lampi bianchi a scatti, poi la

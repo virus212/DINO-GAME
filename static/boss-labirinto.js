@@ -4,20 +4,37 @@
 // punta 4 caselle avanti, azzurro col vettore del rosso, arancio insegue
 // lontano e scappa vicino; fasi sparsi/caccia; spaventati e blu dopo la
 // pillola, occhi che tornano a casa). Il protagonista è il dino-mangiapunti:
-// la testa del dino coi dentini. Decisioni di Vitto: si vince con 70
-// puntini o resistendo 40 s, si perde se un fantasma ti prende (1 vita).
-// Muri nei colori Crackify. Campo 224 x 156: labirinto a celle da 5 unità
-// (140 x 155) al centro, ai lati i contatori ——
+// la testa del dino coi dentini. Decisione di Vitto (08/10): si perde se un
+// fantasma ti prende (1 vita). Si vince mangiando LAB_PUNTINI puntini prima
+// che scada il boss (BOSS_TEMPO del motore, poi «pari»). Il 09/10 Vitto: «il
+// labirinto e troppo easy aumentiamo il numero di palline da racoggliere».
+// Fino ad allora bastavano 70 puntini o resistere 40 s; la vittoria a tempo
+// l'abbiamo tolta noi (da confermare con Vitto): con quella, più puntini non
+// cambiavano niente per chi resiste. Muri nei colori Crackify. Campo
+// 224 x 156: labirinto a celle da 5 unità (140 x 155) al centro, ai lati i
+// contatori (puntini a sinistra, secondi che restano al boss a destra) ——
 const LAB_W = 224;
 const LAB_H = 156;
 const LAB_T = 5; // unità per casella
 const LAB_MX = 42; // dove parte il labirinto nel campo
 const LAB_MY = 0;
 const LAB_TICK = 1000 / 60;
-const LAB_PUNTINI = 70; // puntini per vincere
-const LAB_RESISTE = 40000; // ms per vincere resistendo
+// puntini per vincere, su 244 (prima 70). Tarato col simulatore (node
+// tools/percorso/sim-labirinto.mjs): un giocatore automatico ragionevole
+// (decide ogni 150-250 ms, va al puntino più vicino girando al largo dai
+// fantasmi, usa le pillole) ci arriva entro i 60 s nel 68% delle partite al
+// primo giro (a 70 ci arrivava il 97%); se decide ogni 250-400 ms, come un
+// dito più lento, il 44%. Chi ce la fa ci arriva in ~28 s: col dito c'è
+// margine di tempo, la sfida vera è non farsi prendere
+const LAB_PUNTINI = 150;
 const LAB_VEL = 8 / 60; // caselle a tick al 100%
 const LAB_PAURA = 6000; // ms di fantasmi blu dopo la pillola
+// la difficoltà per giro, tutta qui: i fantasmi a caccia al primo giro
+// (livello 0 del motore) e dal secondo, veloci quanto il dino (0,8: in fuga
+// non si guadagna più strada; il simulatore dà 61% e 35% col dito lento).
+// Prima un «veloce» su tutto contava i livelli da 1 (primo e secondo giro
+// uguali) e accelerando anche il dino rendeva i puntini più facili
+const LAB_FANT_VEL = [0.75, 0.8];
 const LAB_SWIPE = 5; // unità di trascinamento per girare
 const LAB_TAGLIO = 0.45; // caselle prima o dopo il centro in cui si può già girare
 const LAB_PRONTI = 1200; // ms fermi all'inizio, con la scritta (il «pronti» dell'originale)
@@ -86,15 +103,15 @@ function labCaso(g) {
   return g.seme / 4294967296;
 }
 
-function labNuovo(livello = 1) {
+function labNuovo(livello = 0) {
   const puntini = new Uint8Array(28 * 31);
   LAB_MAPPA.forEach((r, y) => [...r].forEach((ch, x) => (puntini[y * 28 + x] = ch === "." ? 1 : ch === "o" ? 2 : 0)));
   return {
     t: 0,
     resto: 0,
+    orologio: 0, // ms del boss (i dt del motore, «pronti» compreso): i secondi che restano
     seme: ((typeof window !== "undefined" && window.__dinoSeme) || Math.random() * 4294967296) >>> 0,
     livello,
-    veloce: 1 + 0.05 * Math.max(0, livello - 1),
     puntini,
     mangiati: 0,
     punti: 0,
@@ -265,7 +282,7 @@ function labTick(g) {
     g.fermo -= LAB_TICK;
     return;
   }
-  const v = LAB_VEL * g.veloce;
+  const v = LAB_VEL;
   // fasi sparsi/caccia: l'orologio si ferma con la paura; al cambio dietrofront
   if (g.paura > 0) {
     g.paura -= LAB_TICK;
@@ -324,7 +341,7 @@ function labTick(g) {
       return;
     }
   }
-  if (g.mangiati >= LAB_PUNTINI || g.t >= LAB_RESISTE) {
+  if (g.mangiati >= LAB_PUNTINI) {
     g.esito = "vinto";
     g.fine = g.t + 300;
   }
@@ -358,18 +375,26 @@ function labFantasmaPasso(g, f, v) {
     }
   } else {
     const tunnel = f.y === 14 && (f.x < 6 || f.x > 21);
-    const vel = f.stato === "occhi" ? 1.6 : tunnel ? 0.4 : f.spaventato ? 0.5 : 0.75;
+    const vel = f.stato === "occhi" ? 1.6 : tunnel ? 0.4 : f.spaventato ? 0.5 : LAB_FANT_VEL[Math.min(1, g.livello)];
     labMuovi(f, v * vel, () => labFantasmaCentro(g, f));
   }
 }
 
+/** orologio somma gli stessi dt del motore (il suo b.t nella fase gioco;
+ * se cambia il tetto BOSS_TEMPO o come conta il motore, va visto anche qui):
+ * l'HUD conta i secondi veri che restano. Caso limite: l'ultimo puntino
+ * mangiato prima dello scadere vale «vinto» anche se la scenetta (g.fine)
+ * non è finita; una presa negli ultimi 600 ms invece resta «pari», come
+ * prima (perdere è game over: lì decide il tempo). */
 function labPasso(g, dt) {
+  g.orologio += dt;
   g.resto += dt;
   while (g.resto >= LAB_TICK) {
     g.resto -= LAB_TICK;
     labTick(g);
   }
-  return g.esito && g.t >= g.fine ? g.esito : null;
+  const scaduto = g.esito === "vinto" && g.orologio >= BOSS_TEMPO;
+  return g.esito && (g.t >= g.fine || scaduto) ? g.esito : null;
 }
 
 // —— disegno ——
@@ -499,7 +524,7 @@ function labPx(c, v) {
   return Math.round(v * k) / k;
 }
 
-function labDisegna(c, g, x0, y0, opz = {}) {
+function labDisegna(c, g, x0, y0) {
   labFondo(c, x0, y0);
   const mx = x0 + LAB_MX;
   const my = y0 + LAB_MY;
@@ -507,7 +532,7 @@ function labDisegna(c, g, x0, y0, opz = {}) {
   // i puntini su una tela a parte (netti, ridisegnata solo quando cambiano),
   // le pillole a celle che lampeggiano
   c.drawImage(labTelaPuntini(g), mx, my);
-  if (Math.floor(g.t / 200) % 2 === 0 || opz.gag || g.pronti > 0)
+  if (Math.floor(g.t / 200) % 2 === 0 || g.pronti > 0)
     for (let i = 0; i < g.puntini.length; i++)
       if (g.puntini[i] === 2) c.drawImage(dinoTela("lab|pillola", LAB_PILLOLA, { "#": "#ffb8ae" }), mx + (i % 28) * LAB_T, my + Math.floor(i / 28) * LAB_T, 5, 5);
   // gli attori, tagliati al labirinto (il tunnel)
@@ -516,33 +541,33 @@ function labDisegna(c, g, x0, y0, opz = {}) {
   c.rect(mx, my, 28 * LAB_T, 31 * LAB_T);
   c.clip();
   const p = g.pac;
-  if (!opz.senzaPac) {
-    const cx = mx + p.x * LAB_T + 2.5;
-    const cy = my + p.y * LAB_T + 2.5;
-    labTesta(c, cx, cy, p.dir, labBocca(g));
-    // la svolta prenotata: una freccina gialla davanti, finché non gira
-    if (p.voglio !== null && p.voglio !== p.dir && !opz.gag) {
-      const [vx, vy] = LAB_DIR[p.voglio];
-      const bx = labPx(c, cx + vx * 8 - 0.5);
-      const by = labPx(c, cy + vy * 8 - 0.5);
-      c.fillStyle = "rgba(255, 210, 63, 0.9)";
-      c.fillRect(bx + vx, by + vy, 1, 1);
-      c.fillRect(bx + vy, by + vx, 1, 1);
-      c.fillRect(bx - vy, by - vx, 1, 1);
-    }
+  const cx = mx + p.x * LAB_T + 2.5;
+  const cy = my + p.y * LAB_T + 2.5;
+  labTesta(c, cx, cy, p.dir, labBocca(g));
+  // la svolta prenotata: una freccina gialla davanti, finché non gira
+  if (p.voglio !== null && p.voglio !== p.dir) {
+    const [vx, vy] = LAB_DIR[p.voglio];
+    const bx = labPx(c, cx + vx * 8 - 0.5);
+    const by = labPx(c, cy + vy * 8 - 0.5);
+    c.fillStyle = "rgba(255, 210, 63, 0.9)";
+    c.fillRect(bx + vx, by + vy, 1, 1);
+    c.fillRect(bx + vy, by + vx, 1, 1);
+    c.fillRect(bx - vy, by - vx, 1, 1);
   }
-  if (!opz.senzaFantasmi)
-    g.fantasmi.forEach((f) => {
-      // gli ultimi 2 s di paura lampeggiano bianchi (disegno: niente stato)
-      const lampo = f.spaventato && g.paura < 2000 && Math.floor(g.paura / 200) % 2 === 0;
-      labFantasma(c, mx + f.x * LAB_T + 2.5 - 5, my + f.y * LAB_T + 2.5 - 5, f, g.t, 1, null, lampo);
-    });
+  g.fantasmi.forEach((f) => {
+    // gli ultimi 2 s di paura lampeggiano bianchi (disegno: niente stato)
+    const lampo = f.spaventato && g.paura < 2000 && Math.floor(g.paura / 200) % 2 === 0;
+    labFantasma(c, mx + f.x * LAB_T + 2.5 - 5, my + f.y * LAB_T + 2.5 - 5, f, g.t, 1, null, lampo);
+  });
   c.restore();
   g.testi.forEach((s) => {
     if (g.t - s.t < 1000) dinoScritta(c, s.testo, mx + s.x * LAB_T + 2.5, my + s.y * LAB_T, "#00ffff", DINO_FONT_PICCOLO, 1);
   });
-  if (g.pronti > 0 && !opz.gag) dinoScritta(c, "PRONTI!", mx + 14 * LAB_T, my + 17 * LAB_T, "#ffd23f", DINO_FONT_PICCOLO, 1);
-  // a sinistra i puntini (mangiati sopra, da mangiare sotto), a destra i secondi
+  if (g.pronti > 0) dinoScritta(c, "PRONTI!", mx + 14 * LAB_T, my + 17 * LAB_T, "#ffd23f", DINO_FONT_PICCOLO, 1);
+  // a sinistra i puntini (mangiati sopra, da mangiare sotto), a destra i
+  // secondi che restano prima che il boss finisca «pari»: si vince solo a
+  // puntini, quindi è una corsa contro il tempo, non un «resisti». Negli
+  // ultimi 10 s lampeggiano (con «riduci movimento» fissi, in giallo)
   const sx = x0 + LAB_MX / 2;
   c.fillStyle = "#ffb8ae";
   c.fillRect(sx - 1, y0 + 46, 3, 5);
@@ -552,8 +577,10 @@ function labDisegna(c, g, x0, y0, opz = {}) {
   c.fillRect(sx - 9, y0 + 71, 18, 1);
   dinoScritta(c, String(LAB_PUNTINI), sx, y0 + 75, "#ffb8ae", DINO_FONT_PICCOLO);
   const dx = x0 + LAB_W - LAB_MX / 2;
-  const resta = Math.max(0, Math.ceil((LAB_RESISTE - g.t) / 1000));
-  dinoScritta(c, String(resta), dx, y0 + 58, resta <= 5 && Math.floor(g.t / 250) % 2 ? "#ffffff" : "#7dff4a", DINO_FONT_PICCOLO);
+  const resta = Math.max(0, Math.ceil((BOSS_TEMPO - g.orologio) / 1000));
+  const allarme = resta <= 10 && !g.esito;
+  const colore = !allarme ? "#7dff4a" : dinoMotoRidotto() ? "#ffd23f" : Math.floor(g.orologio / 250) % 2 ? "#ffffff" : "#7dff4a";
+  dinoScritta(c, String(resta), dx, y0 + 58, colore, DINO_FONT_PICCOLO);
   dinoScritta(c, "SEC", dx, y0 + 75, "#7dff4a", DINO_FONT_PICCOLO);
 }
 
@@ -671,140 +698,16 @@ function labSopra(c, b, W) {
   }
 }
 
-// —— le gag dell'esito (k da 0 a 1 in BOSS_ESITO) ——
-/** La testa che si sgonfia (la morte dell'originale, col dino): rivolta in
- * su, la bocca si spalanca fino a mangiarsi tutta la testa. n da 0 a 10. */
-function labMorteRighe(n) {
-  const meta = (0.18 + (0.82 * n) / 10) * Math.PI; // mezza apertura della bocca
-  const righe = [];
-  for (let j = 0; j < 10; j++) {
-    let r = "";
-    for (let i = 0; i < 10; i++) {
-      const x = i - 4.5;
-      const y = j - 4.5;
-      if (x * x + y * y > 25.5 || Math.abs(Math.atan2(x, -y)) < meta) r += ".";
-      else if (n < 5 && j >= 5 && j <= 6 && i >= 2 && i <= 3) r += i === 2 && j === 5 ? "w" : "e";
-      else if (n < 5 && j === 4 && (i === 1 || i === 8)) r += "t";
-      else r += j >= 8 ? "d" : "#";
-    }
-    righe.push(r);
-  }
-  return righe;
-}
-
-function labEsito(c, g, x0, y0, k, esito) {
-  const mx = x0 + LAB_MX;
-  const my = y0 + LAB_MY;
-  const p = g.pac;
-  const pcx = mx + p.x * LAB_T + 2.5;
-  const pcy = my + p.y * LAB_T + 2.5;
+// —— la gag sulla strada (Vitto 09/10: fuori dal minigioco): quella di serie
+// di boss.js col fantasma rosso, che sotto il soffio diventa blu di paura
+// e a vincere ondeggia contento ——
+function labRitratto(c, b, x, terra, stato) {
   const fermo = dinoMotoRidotto();
-  if (esito === "vinto") {
-    // un fantasma gigante blu di paura che suda; il dino-mangiapunti arriva
-    // masticando, spalanca la bocca, se lo ingoia in un boccone, mastica con
-    // le guance gonfie e fa il ruttino: gli occhi del fantasma scappano a casa
-    labDisegna(c, g, x0, y0, { gag: true, senzaPac: true, senzaFantasmi: true });
-    c.fillStyle = "rgba(7, 6, 11, 0.62)";
-    c.fillRect(x0, y0, LAB_W, LAB_H);
-    const fx = x0 + 150;
-    const fy = y0 + 80;
-    const ingoia = Math.min(1, Math.max(0, (k - 0.4) / 0.1)); // il fantasma entra in bocca
-    if (ingoia < 1) {
-      const gs = 4 * (1 - ingoia) + 0.5;
-      const tr = !fermo && Math.floor(k * 50) % 2 ? 1 : 0;
-      const gx = fx - 5 * gs + tr - ingoia * 30;
-      labFantasma(c, gx, fy - 5 * gs, { lampo: k > 0.2 && Math.floor(k * 24) % 2 === 0, spaventato: true }, g.t, gs, "paura");
-      if (!fermo && ingoia === 0)
-        [0, 1].forEach((i) => {
-          const q = ((k * 1800 + i * 200) % 400) / 400; // il sudore
-          c.fillStyle = `rgba(150, 220, 255, ${(0.9 * (1 - q)).toFixed(2)})`;
-          c.fillRect(Math.round(gx + 42 + i * 3), Math.round(fy - 22 + q * 12), 2, 3);
-        });
-    }
-    let hx;
-    let sc;
-    let bocca;
-    let sx = 1;
-    let sy = 1;
-    if (k < 0.3) {
-      hx = x0 + 30 + (k / 0.3) * 40;
-      sc = 3;
-      bocca = fermo ? 1 : [0, 1, 2, 1][Math.floor(k * 40) % 4];
-    } else if (k < 0.5) {
-      const q = (k - 0.3) / 0.2;
-      hx = x0 + 70 + q * 40;
-      sc = 3 + q * 3;
-      bocca = 2;
-    } else if (k < 0.82) {
-      hx = x0 + 110;
-      sc = 6;
-      bocca = fermo ? 0 : Math.floor(k * 22) % 2 ? 0 : 1;
-      sx = 1.25 + (fermo ? 0 : 0.06 * Math.sin(k * 70)); // guance gonfie che masticano
-      sy = 0.92;
-    } else {
-      const q = (k - 0.82) / 0.18;
-      hx = x0 + 110;
-      sc = 6 - q * 2;
-      bocca = q < 0.4 ? 2 : 1;
-    }
-    labTesta(c, hx, fy, LAB_DESTRA, bocca, sc, sx, sy);
-    if (k >= 0.82) {
-      // il ruttino: una nuvoletta e gli occhi che scappano via
-      const q = (k - 0.82) / 0.18;
-      c.fillStyle = `rgba(255, 236, 214, ${(0.7 * (1 - q)).toFixed(2)})`;
-      [0, 1, 2].forEach((i) => c.fillRect(Math.round(hx + 22 + i * 7 + q * 10), Math.round(fy - 4 - i * 5 - q * 8), 5 - i, 5 - i));
-      labFantasma(c, hx + 24 + q * 70, fy - 10 - q * 60, { dir: LAB_DESTRA, stato: "occhi" }, g.t, 2, "occhi");
-      dinoScritta(c, "Burp!", x0 + LAB_W / 2, y0 + 128, "#ffd23f");
-    }
-    if (k > 0.5) dinoScritta(c, "Gnam!", x0 + LAB_W / 2, y0 + 14, "#7dff4a");
-  } else if (esito === "perso") {
-    // i fantasmi lo acchiappano e spariscono; il dino si gira in su e si
-    // sgonfia aprendo la bocca fino a sparire, l'occhio salta via, la cuffia
-    // cade e rimbalza; poi il «pop»
-    labDisegna(c, g, x0, y0, { senzaPac: true, senzaFantasmi: k > 0.15 });
-    c.fillStyle = `rgba(7, 6, 11, ${Math.min(0.62, k * 3).toFixed(2)})`;
-    c.fillRect(x0, y0, LAB_W, LAB_H);
-    const zoom = Math.min(1, k / 0.18);
-    const cx = Math.round(pcx + (x0 + LAB_W / 2 - pcx) * zoom);
-    const cy = Math.round(pcy + (y0 + 80 - pcy) * zoom);
-    const sc = Math.round(1 + zoom * 4);
-    if (k < 0.2) labTesta(c, cx, cy, p.dir, 1, sc);
-    else if (k < 0.82) {
-      const n = Math.min(10, Math.floor(((k - 0.2) / 0.6) * 11));
-      const righe = labMorteRighe(n);
-      const colori = labTestaColori();
-      c.drawImage(dinoTela(`lab|morte|${n}`, righe, colori), cx - 5 * sc, cy - 5 * sc, 10 * sc, 10 * sc);
-    } else {
-      const q = (k - 0.82) / 0.18;
-      c.fillStyle = "#ffd23f";
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * 6.283;
-        for (let r = 6 + q * 10; r < 12 + q * 16; r += 2) c.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 2, 2);
-      }
-    }
-    if (k > 0.45) {
-      // l'occhio salta via: «boing»
-      const e = Math.min(1, (k - 0.45) / 0.45);
-      const ex = Math.round(cx - 10 - e * 50);
-      const ey = Math.round(cy - Math.sin(e * Math.PI) * 40 + e * 30);
-      c.fillStyle = "#ffffff";
-      c.fillRect(ex, ey, 6, 6);
-      c.fillStyle = "#141414";
-      c.fillRect(ex + 3, ey + 2, 3, 3);
-    }
-    if (k > 0.3) {
-      // la cuffia cade e rimbalza
-      const e = Math.min(1, (k - 0.3) / 0.6);
-      const terra = y0 + LAB_H - 14;
-      const salto = Math.abs(Math.cos(e * Math.PI * 2.5)) * (1 - e);
-      c.fillStyle = "#a9a9b1";
-      c.fillRect(Math.round(cx + 20 + e * 30), Math.round(cy + (terra - cy) * Math.min(1, e * 1.6) - salto * 30), 5, 10);
-    }
-    if (k > 0.4) dinoScritta(c, "Sgonfiato!", x0 + LAB_W / 2, y0 + 14, "#ff5fd2");
-  } else {
-    labDisegna(c, g, x0, y0, { gag: true });
-    dinoScritta(c, "Tempo!", x0 + LAB_W / 2, y0 + 60, "#ffd23f");
-  }
+  const su = stato.esulta && !fermo ? Math.round(Math.sin(b.t / 120) * 2) : 0;
+  c.fillStyle = "rgba(0, 0, 0, 0.35)";
+  c.fillRect(x + 4, terra - 1, 10 * LAB_SCALA - 8, 2);
+  const f = { colore: "#ff0000", dir: LAB_SINISTRA, stato: "fuori", spaventato: stato.arrosto, lampo: stato.arrosto && Math.floor(b.t / 150) % 2 === 0 };
+  labFantasma(c, x, terra - 10 * LAB_SCALA - 4 + su, f, b.t, LAB_SCALA);
 }
 
 const BOSS_LABIRINTO = {
@@ -818,7 +721,8 @@ const BOSS_LABIRINTO = {
   disegna: (c, g, x0, y0) => labDisegna(c, g, x0, y0),
   dito: labDito,
   tasto: labTasto,
-  esito: labEsito,
+  larga: 10 * LAB_SCALA,
+  ritratto: labRitratto,
   strada: labStrada,
   sopra: labSopra,
   incontroPasso: labIncontroPasso,
